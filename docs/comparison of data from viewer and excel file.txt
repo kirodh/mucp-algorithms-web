@@ -1,0 +1,439 @@
+#gis mapping shp
+- viewer
+Index(['nbal_id', 'miu_id', 'compt_id', 'area', 'geometry'], dtype='object')
+nbal_id                                            h60b400052
+miu_id                                           m_h60b400052
+compt_id                                         c_h60b400303
+area                                                 0.000008
+geometry    POLYGON ((21496.64963930845 -3754318.10992603,...
+Name: 0, dtype: object
+
+- backend
+Index(['nbal_id', 'miu_id', 'compt_id', 'area', 'geometry'], dtype='object')
+nbal_id                                            h60b400052
+miu_id                                           m_h60b400052
+compt_id                                         c_h60b400303
+area                                                 0.000008
+geometry    POLYGON ((21496.64963930845 -3754318.10992603,...
+Name: 0, dtype: object
+
+
+#niu shp
+- viewer
+Index(['miu_id', 'area', 'riparian_c', 'geometry'], dtype='object')
+miu_id                                             m_h60b400169
+area                                                  57.345913
+riparian_c                                                    l
+geometry      POLYGON ((9582.974294258824 -3761027.339255519...
+Name: 0, dtype: object
+
+
+- backend
+Index(['miu_id', 'area', 'riparian_c', 'geometry'], dtype='object')
+miu_id                                             m_h60b400169
+area                                                  57.345913
+riparian_c                                                    l
+geometry      POLYGON ((9582.974294258824 -3761027.339255519...
+Name: 0, dtype: object
+
+#nbal shp
+- viewer
+Index(['nbal_id', 'area', 'geometry', 'stage'], dtype='object')
+nbal_id                                            h60b400177
+area                                                33.991674
+geometry    POLYGON ((11084.678312947115 -3760290.90121776...
+stage                                                       5
+Name: 0, dtype: object
+
+
+- backend
+Index(['nbal_id', 'area', 'geometry', 'stage'], dtype='object')
+nbal_id                                            h60b400177
+area                                                33.991674
+geometry    POLYGON ((11084.678312947115 -3760290.90121776...
+stage                                                       5
+Name: 0, dtype: object
+
+#compartment shp
+- viewer
+Index(['compt_id', 'area_ha', 'slope', 'walk_time', 'drive_time', 'costing',
+       'grow_con', 'geometry'],
+      dtype='object')
+compt_id                                           c_h60b400177
+area_ha                                               33.991674
+slope                                                 28.075625
+walk_time                                                  35.0
+drive_time                                                 30.0
+costing                                                       2
+grow_con                                            sub-optimal
+geometry      POLYGON ((11084.678312947115 -3760290.90121776...
+Name: 0, dtype: object
+
+
+- backend
+Index(['compt_id', 'area_ha', 'slope', 'walk_time', 'drive_time', 'costing',
+       'grow_con', 'geometry'],
+      dtype='object')
+compt_id                                           c_h60b400177
+area_ha                                               33.991674
+slope                                                 28.075625
+walk_time                                                  35.0
+drive_time                                                 30.0
+costing                                                       2
+grow_con                                            sub-optimal
+geometry      POLYGON ((11084.678312947115 -3760290.90121776...
+Name: 0, dtype: object
+
+#miu linked species excel
+- viewer
+Index(['miu_id', 'species', 'idenscode', 'age'], dtype='object')
+miu_id         m_h60b400052
+species      pinus pinaster
+idenscode              35.0
+age                   young
+Name: 0, dtype: object
+
+- backend
+Index(['miu_id', 'species', 'idenscode', 'age'], dtype='object')
+miu_id         m_h60b400052
+species      pinus pinaster
+idenscode              35.0
+age                   young
+Name: 0, dtype: object
+
+#nbal linked species excel
+- viewer
+Index(['nbal_id', 'species', 'idenscode', 'age'], dtype='object')
+nbal_id          h60b400052
+species      pinus pinaster
+idenscode              35.0
+age                   young
+Name: 0, dtype: object
+
+
+- backend
+Index(['nbal_id', 'species', 'idenscode', 'age'], dtype='object')
+nbal_id          h60b400052
+species      pinus pinaster
+idenscode              35.0
+age                   young
+Name: 0, dtype: object
+
+#compartment priorities csv
+- viewer
+Index(['compt_id', 'owner', 'vegetation status', 'veld age', 'elevation',
+       'rain', 'runoff'],
+      dtype='object')
+compt_id             c_h60b400169
+owner                  capenature
+vegetation status              lt
+veld age                        8
+elevation                     806
+rain                       1195.3
+runoff                        598
+Name: 0, dtype: object
+
+
+- backend
+Index(['compt_id', 'owner', 'vegetation status', 'veld age', 'elevation',
+       'rain', 'runoff'],
+      dtype='object')
+compt_id             c_h60b400169
+owner                  capenature
+vegetation status              lt
+veld age                        8
+elevation                     806
+rain                       1195.3
+runoff                        598
+Name: 0, dtype: object
+
+#growth forms
+- viewer
+['all', 'aquatic weed', 'cactus', 'creeper', 'grass', 'herbaceous', 'non sprouting tree', 'sprouting tree']
+
+
+- backend
+['all', 'aquatic weed', 'cactus', 'creeper', 'grass', 'herbaceous', 'non sprouting tree', 'sprouting tree']
+
+
+#treatment method
+- viewer
+['bark strip', 'basal stem + diesel', 'cut below ground', 'cut & spray', 'cut & spray + diesel', 'cut stump', 'cut stump + diesel', 'cut stump + oil', 'dig out and burn', 'felling', 'foliar spray', 'frill', 'hand pull', 'lopping / pruning', 'manual removal', 'ring bark', 'soil application', 'spray from boat', 'spray from shoreline (bakkie sakkie)', 'spray from shoreline (knapsack)', 'stem inject']
+
+- backend
+['bark strip', 'basal stem + diesel', 'cut below ground', 'cut & spray', 'cut & spray + diesel', 'cut stump', 'cut stump + diesel', 'cut stump + oil', 'dig out and burn', 'felling', 'foliar spray', 'frill', 'hand pull', 'lopping / pruning', 'manual removal', 'ring bark', 'soil application', 'spray from boat', 'spray from shoreline (bakkie sakkie)', 'spray from shoreline (knapsack)', 'stem inject']
+
+
+#clearing norms
+- viewer
+Index(['id', 'clearing_norm_set', 'growth_form', 'treatment_method', 'density',
+       'ppd', 'terrain', 'size_class', 'process'],
+      dtype='object')
+id                                  1
+clearing_norm_set                   1
+growth_form                       all
+treatment_method     soil application
+density                          0.01
+ppd                            0.0011
+terrain                     landscape
+size_class                        all
+process                     follow-up
+Name: 0, dtype: object
+
+
+- backend
+Index(['density', 'process', 'growth_form', 'size_class', 'treatment_method',
+       'terrain', 'ppd'],
+      dtype='object')
+density                            0.01
+process                       follow-up
+growth_form                  herbaceous
+size_class                        adult
+treatment_method    basal stem + diesel
+terrain                        riparian
+ppd                             0.00068
+Name: 38, dtype: object
+
+#species
+- viewer
+Index(['id', 'user_id', 'species_name', 'genus', 'english_name',
+       'afrikaans_name', 'growth_form', 'WC', 'NC', 'KZN', 'GTG', 'MPL', 'FS',
+       'EC', 'LMP', 'NW', 'initial_reduction', 'follow_up_reduction',
+       'treatment_frequency', 'densification', 'flow_optimal',
+       'flow_sub_optimal', 'flow_young', 'flow_seedling', 'flow_coppice'],
+      dtype='object')
+id                                     17
+user_id                               NaN
+species_name            acacia longifolia
+genus                              acacia
+english_name           long-leaved wattle
+afrikaans_name            langblaarwattel
+growth_form                sprouting tree
+WC                                   True
+NC                                   True
+KZN                                  True
+GTG                                  True
+MPL                                  True
+FS                                   True
+EC                                   True
+LMP                                 False
+NW                                  False
+initial_reduction                    50.0
+follow_up_reduction                  20.0
+treatment_frequency                    12
+densification                          15
+flow_optimal                          0.9
+flow_sub_optimal                      0.9
+flow_young                            0.5
+flow_seedling                         0.1
+flow_coppice                          0.5
+Name: 16, dtype: object
+
+- backend
+Index(['id', 'species_name', 'genus', 'english_name', 'afrikaans_name',
+       'growth_form', 'wc', 'nc', 'kzn', 'gtg', 'mpl', 'fs', 'ec', 'lmp', 'nw',
+       'initial_reduction', 'follow_up_reduction', 'treatment_frequency',
+       'densification', 'flow_optimal', 'flow_sub_optimal', 'flow_young',
+       'flow_seedling', 'flow_coppice'],
+      dtype='object')
+id                                 17
+species_name            acacia longifolia
+genus                              acacia
+english_name           long-leaved wattle
+afrikaans_name            langblaarwattel
+growth_form                sprouting tree
+wc                                      1
+nc                                      1
+kzn                                     1
+gtg                                     1
+mpl                                     1
+fs                                      1
+ec                                      1
+lmp                                     0
+nw                                      0
+initial_reduction                      50
+follow_up_reduction                    20
+treatment_frequency                     3
+densification                          15
+flow_optimal                          0.9
+flow_sub_optimal                      0.9
+flow_young                            0.5
+flow_seedling                         0.1
+flow_coppice                          0.5
+Name: 16, dtype: object
+
+#costing data
+- viewer
+Index(['Costing Model Name', 'Initial Team Size', 'Initial Cost/Day',
+       'Follow-up Team Size', 'Follow-up Cost/Day', 'Vehicle Cost/Day',
+       'Fuel Cost/Hour', 'Maintenance Level', 'Cost/Day'],
+      dtype='object')
+Costing Model Name     mumba
+Initial Team Size          1
+Initial Cost/Day       60.00
+Follow-up Team Size        2
+Follow-up Cost/Day      3.00
+Vehicle Cost/Day        3.00
+Fuel Cost/Hour          3.00
+Maintenance Level          2
+Cost/Day               50.00
+Name: 0, dtype: object
+
+- backend
+Index(['Costing Model Name', 'Initial Team Size', 'Initial Cost/Day',
+       'Follow-up Team Size', 'Follow-up Cost/Day', 'Vehicle Cost/Day',
+       'Fuel Cost/Hour', 'Maintenance Level', 'Cost/Day', 'A', 'B', 'C'],
+      dtype='object')
+Costing Model Name     Inspection
+Initial Team Size               0
+Initial Cost/Day                0
+Follow-up Team Size             0
+Follow-up Cost/Day              0
+Vehicle Cost/Day                0
+Fuel Cost/Hour                  0
+Maintenance Level               0
+Cost/Day                     1000
+A                             NaN
+B                             NaN
+C                             NaN
+Name: 0, dtype: object
+
+#budget plan 1
+- viewer
+10000000
+
+- backend
+10000000
+
+#budget plan 2
+- viewer
+7500000
+
+- backend
+7500000
+
+#budget plan 3
+- viewer
+5000000
+
+- backend
+5000000
+
+#budget plan 4
+- viewer
+2500000
+
+- backend
+2500000
+
+#escalation plan 1
+- viewer
+10
+
+- backend
+10
+
+#escalation plan 2
+- viewer
+10
+
+- backend
+10
+
+#escalation plan 3
+- viewer
+10
+
+- backend
+10
+
+#escalation plan 4
+- viewer
+10
+
+- backend
+10
+
+#standard working day
+- viewer
+8
+
+- backend
+8
+
+#working year days
+- viewer
+220
+
+- backend
+220
+
+
+#start year
+- viewer
+2025
+
+- backend
+2025
+
+#years to run
+- viewer
+20
+
+- backend
+20
+
+#currancy
+- viewer
+ZAR
+
+- backend
+ZAR
+
+#save results
+- viewer
+True
+
+- backend
+True
+
+#cost plan mappings
+- viewer
+{'2': 'mumba', '1': 'mumba', '3': 'mumba'}
+
+
+- backend
+{1: 'Inspection', 2: 'Model A', 3: 'Model B'}
+
+#categories
+- viewer
+[{'name': 'elevation', 'weight': Decimal('0.00'), 'type': 'numeric', 'ranges': [(0.0, 400.0, 1), (401.0, 800.0, 2), (801.0, 1000.0, 3), (1001.0, 1200.0, 4), (1201.0, 1400.0, 5), (1401.0, 1600.0, 6), (1601.0, 1800.0, 7), (1801.0, 2000.0, 8)]}, {'name': 'runoff', 'weight': Decimal('0.50'), 'type': 'numeric', 'ranges': [(0.0, 100.0, 1), (101.0, 200.0, 2), (201.0, 300.0, 3), (301.0, 400.0, 4), (401.0, 500.0, 5), (501.0, 600.0, 6), (601.0, 700.0, 7)]}, {'name': 'owner', 'weight': Decimal('0.40'), 'type': 'text', 'allowed': [{'value': 'CapeNature', 'priority': 1}, {'value': 'Farm', 'priority': 3}, {'value': 'Home owner', 'priority': 4}, {'value': 'Private mountain catchment', 'priority': 2}]}]
+
+
+
+- backend
+[{'name': 'elevation', 'type': 'numeric', 'weight': 0.2, 'ranges': [(0.0, 400.0, 1.0), (401.0, 800.0, 2.0), (801.0, 1000.0, 3.0), (1001.0, 1200.0, 4.0), (1201.0, 1400.0, 5.0), (1401.0, 1600.0, 6.0), (1601.0, 1800.0, 7.0), (1801.0, 2000.0, 8.0)]}, {'name': 'owner', 'type': 'text', 'weight': 0.4, 'allowed': [{'value': 'capenature', 'priority': 1.0}, {'value': 'private mountain catchment', 'priority': 2.0}, {'value': 'farm', 'priority': 3.0}, {'value': 'home owner', 'priority': 4.0}]}, {'name': 'rain', 'type': 'numeric', 'weight': 0.56, 'ranges': [(0.0, 600.0, 1.0), (601.0, 1200.0, 2.0), (1201.0, 1800.0, 3.0), (1801.0, 2400.0, 4.0), (2401.0, 3000.0, 5.0)]}, {'name': 'runoff', 'type': 'numeric', 'weight': 0.82, 'ranges': [(0.0, 100.0, 1.0), (101.0, 200.0, 2.0), (201.0, 300.0, 3.0), (301.0, 400.0, 4.0), (401.0, 500.0, 5.0), (501.0, 600.0, 6.0), (601.0, 700.0, 7.0)]}, {'name': 'vegetation status', 'type': 'text', 'weight': 0.7, 'allowed': [{'value': 'lt', 'priority': 1.0}, {'value': 'e', 'priority': 2.0}, {'value': 'de', 'priority': 3.0}]}, {'name': 'veld age', 'type': 'numeric', 'weight': 0.63, 'ranges': [(1.0, 5.0, 1.0), (6.0, 10.0, 2.0), (11.0, 15.0, 3.0), (16.0, 20.0, 4.0), (21.0, 25.0, 5.0), (26.0, 30.0, 6.0), (31.0, 35.0, 7.0)]}]
+
+
+#prioritization model data
+- viewer
+Index(['compt_id', 'elevation', 'runoff', 'owner'], dtype='object')
+compt_id     c_h60b400169
+elevation             806
+runoff                598
+owner          capenature
+Name: 0, dtype: object
+
+- backend
+Index(['compt_id', 'elevation', 'owner', 'rain', 'runoff', 'vegetation status',
+       'veld age'],
+      dtype='object')
+compt_id             c_h60b400169
+elevation                     806
+owner                  capenature
+rain                       1195.3
+runoff                        598
+vegetation status              lt
+veld age                        8
+Name: 0, dtype: object
+

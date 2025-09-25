@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mucp-algorithms"
+version = "0.1.0"
+description = "Algorithms and data readers for MUCP planning"
+authors = [
+  { name="Kirodh Boodhraj", email="kboodhraj@csir.co.za" }
+]
+dependencies = [
+  "pandas",
+  "geopandas",
+#  "sqlalchemy",
+  "openpyxl",
+  "setuptools",
+  "wheel",
+]

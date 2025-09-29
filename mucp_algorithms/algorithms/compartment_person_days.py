@@ -1,5 +1,10 @@
-# import numpy as np
+"""
+Purpose: Person day algorithm of the MUCP tool. Check out the algorithm file for more information.
+    This code is optimized to use vectorization for speed.
+Author: Kirodh Boodhraj
+"""
 
+# Main Normal Person Day algorithm
 def calculate_normal_person_days(PPD: float, area: float) -> float:
     """
     Calculate normal and adjusted person-days based on input data.
@@ -8,24 +13,6 @@ def calculate_normal_person_days(PPD: float, area: float) -> float:
         PD_normal = PPD × Area
         PD_adjusted = PD_normal × working_hours / (working_hours - (2 × (walk_time + drive_time) / 60)) × slope_factor
 
-    Parameters
-    ----------
-    person_day_data : np.ndarray
-        Array with shape (n, 5), where columns are:
-            0 = person_day_factor (PPD)
-            1 = walk_time (minutes)
-            2 = drive_time (minutes)
-            3 = area
-            4 = slope_factor
-    working_hours_per_day : int, optional
-        Default = 8 (standard working hours per day).
-
-    Returns
-    -------
-    np.ndarray
-        Array with shape (n, 2), where:
-            [:,0] = normal person-days
-            [:,1] = adjusted person-days
     """
 
     # Step 1: normal person-days
@@ -33,6 +20,8 @@ def calculate_normal_person_days(PPD: float, area: float) -> float:
 
     return normal_person_days
 
+
+# Main Person Day algorithm (aka adjusted person days)
 def calculate_adjusted_person_days(PPD_normal: float, walk_time: float, drive_time: float, slope_factor: float, working_hours_per_day: float) -> float:
     """
     Calculate normal and adjusted person-days based on input data.
@@ -41,24 +30,6 @@ def calculate_adjusted_person_days(PPD_normal: float, walk_time: float, drive_ti
         PD_normal = PPD × Area
         PD_adjusted = PD_normal × working_hours / (working_hours - (2 × (walk_time + drive_time) / 60)) × slope_factor
 
-    Parameters
-    ----------
-    person_day_data : np.ndarray
-        Array with shape (n, 5), where columns are:
-            0 = person_day_factor (PPD)
-            1 = walk_time (minutes)
-            2 = drive_time (minutes)
-            3 = area
-            4 = slope_factor
-    working_hours_per_day : int, optional
-        Default = 8 (standard working hours per day).
-
-    Returns
-    -------
-    np.ndarray
-        Array with shape (n, 2), where:
-            [:,0] = normal person-days
-            [:,1] = adjusted person-days
     """
 
 

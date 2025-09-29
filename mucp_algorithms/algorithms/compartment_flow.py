@@ -1,5 +1,10 @@
-# import numpy as np
+"""
+Purpose: Flow algorithm of the MUCP tool. Check out the algorithm file for more information.
+    This code is optimized to use vectorization for speed. Flow only works when runoff is provided.
+Author: Kirodh Boodhraj
+"""
 
+# main flow algorithm
 def calculate_flow(
     MAR: float,
     area: float,
@@ -9,7 +14,7 @@ def calculate_flow(
     riparian: bool
 ) -> float:
     """
-    Calculate compartment flow based on MAR, area, density, and modifiers.
+    Calculate compartment flow based on Mean Annual Run off (MAR), area, density, and modifiers.
 
     Is calculated only if Mean Annual Runoff is available.
 
@@ -36,7 +41,6 @@ def calculate_flow(
 
     Returns
     -------
-    float
         Computed flow value.
     """
 

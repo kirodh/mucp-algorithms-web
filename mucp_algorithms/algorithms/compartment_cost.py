@@ -1,3 +1,85 @@
+"""
+Purpose: Cost algorithm of the MUCP tool. Check out the algorithm file for more information.
+    This code is optimized to use vectorization for speed.
+Author: Kirodh Boodhraj
+
+The main costing algorithm needs:
+- person days (calculated using the person day normal)
+- initial/follow-up cost per day (need to determine if it is an initial or a follow-up)
+- initial/follow-up team size (need to determine if it is an initial or a follow-up)
+- vehicle cost per day
+- person days normal (step before the person days)
+- cost per day (daily costs defined by user, summed up and used here)
+- fuel cost per miu species (the distributed fuel cost for each species entry in that specific compartment, i.e. if 3 species
+    in compartment C1234, then the cost must be divided by 3)
+
+The costing formula is:
+cost =
+    person days * initial or follow-up cost per day / initial or follow-up team size +
+    vehicle cost per day * person days normal +
+    cost per day * person days normal +
+    fuel cost per miu species
+
+
+The output of this algorithm is two parts:
+- budgets
+- costing results
+
+****The budgets:
+
+These are the propagated budgets using simple interest for each year and budget plan. They take the following structure:
+the key is the year, and for each year there is a dictionary with the keys:
+- plan_1
+- plan_2
+- plan_3
+- plan_4
+
+and the values for each of these are the calculated budget for that year i.e.
+
+{2025: {'plan_1': 10000000.0, 'plan_2': 7500000.0, 'plan_3': 5000000.0, 'plan_4': 2500000.0},
+    2026: {'plan_1': 11000000.0, 'plan_2': 8250000.0, 'plan_3': 5500000.0, 'plan_4': 2750000.0},
+    2027: {'plan_1':....}, ...
+    }
+
+
+
+
+****The costing results:
+They take the structure of a lost, the list contains 5 items, one for each budget in this order:
+- 0 index is optimal budget
+- 1 index is budget plan 1
+- 2 index is budget plan 2
+- 3 index is budget plan 3
+- 4 index is budget plan 4
+
+In each list item there is a dictionary, the keys are the year of the simulation and the values are a dataframe.
+
+The dataframe contains the full gis mapping entires linked to the results for that year, i.e. the density, priority etc.
+
+For example, to access the optimal budget, year 2025, 1st row of the dataframe or timestep, use:
+
+costing[0][2025].iloc[0]
+
+which results in:
+
+link_back_id                            2
+person_days_factor                  1.242
+person_days_normal             303.677464
+person_days                    618.397745
+cost                        153795.154645
+density                               3.5
+flow                        170598.515202
+cleared_fully_previously            False
+priority                             8.18
+cleared_now                          True
+cleared_fully                       False
+nbal_id                        h60b400342
+miu_id                       m_h60b400342
+compt_id                     c_h60b400342
+Name: 0, dtype: object
+
+"""
+
 import pandas as pd
 import numpy as np
 from .compartment_priority import get_priorities
@@ -6,13 +88,20 @@ from .compartment_flow import calculate_flow
 from .compartment_person_days import calculate_normal_person_days, calculate_adjusted_person_days
 
 
+"""
+Costing helper functions and algorithm below
+"""
 
 # -------------------------------
 # Prioritization
 # -------------------------------
+
+# find prioritization values per compartment
 def get_prioritization(prioritization_model_data, categories):
     return get_priorities(prioritization_model_data, categories)
 
+
+# attach prioritization values to compartments
 def attach_prioritization(full_df: pd.DataFrame, timestep_df: pd.DataFrame) -> pd.Series:
     """
     Attach priority values from full_df to timestep_df based on link_back_id.
@@ -31,13 +120,15 @@ def attach_prioritization(full_df: pd.DataFrame, timestep_df: pd.DataFrame) -> p
     )
     return merged["prioritization"]
 
+
 # -------------------------------
 # Budget
 # -------------------------------
 
+# calculate all the budget values for the simulation period, one of the main outputs
 def propagate_budgets_for_all_years(start_year: int, years_to_run: int, budget_1: float, budget_2: float, budget_3: float, budget_4: float, escalation_1: float, escalation_2: float, escalation_3: float, escalation_4: float):
     """
-    Propagate budgets using simple interest per year.
+    Propagate budgets using simple interest per year. FV = PV * (1 + i*n)
 
     Parameters:
         start_year (int): First year (treated as year 1, n=0).
@@ -68,7 +159,7 @@ def propagate_budgets_for_all_years(start_year: int, years_to_run: int, budget_1
         year = start_year + year_offset
         results[year] = {}
         for plan, pv in budget_plans.items():
-            i = escalation_plans[plan] / 100.0  # convert % → decimal
+            i = escalation_plans[plan] / 100.0  # convert % -> decimal
             fv = pv * (1 + i * year_offset)  # simple interest
             results[year][plan] = fv
     return results
@@ -78,6 +169,8 @@ def propagate_budgets_for_all_years(start_year: int, years_to_run: int, budget_1
 # Merge and split data frames for all data
 # -------------------------------
 
+# merge the miu, nbal, compartment and gis mapping files together to make a master df with all data available for all
+#   the entries in the gis mapping file
 def merge_gis_mapping_compartment_miu_nbal_df(compartment_data, miu_data ,nbal_data, gis_mapping_data):
     # step get all valid entries if they are in the miu, nbal and compartment df's
     # Build sets of valid IDs from the other dataframes
@@ -85,14 +178,14 @@ def merge_gis_mapping_compartment_miu_nbal_df(compartment_data, miu_data ,nbal_d
     valid_miu_ids = set(miu_data["miu_id"].dropna().unique())
     valid_nbal_ids = set(nbal_data["nbal_id"].dropna().unique())
 
-    # Filter compartments → must always exist
+    # Filter compartments -> must always exist
     gis_mapping_data = gis_mapping_data[gis_mapping_data["compt_id"].isin(valid_compt_ids)]
 
-    # Filter miu → only check rows where miu_id is not null
+    # Filter miu -> only check rows where miu_id is not null
     mask_miu = gis_mapping_data["miu_id"].isna() | gis_mapping_data["miu_id"].isin(valid_miu_ids)
     gis_mapping_data = gis_mapping_data[mask_miu]
 
-    # Filter nbal → only check rows where nbal_id is not null
+    # Filter nbal -> only check rows where nbal_id is not null
     mask_nbal = gis_mapping_data["nbal_id"].isna() | gis_mapping_data["nbal_id"].isin(valid_nbal_ids)
     gis_mapping_data = gis_mapping_data[mask_nbal]
 
@@ -109,6 +202,7 @@ def merge_gis_mapping_compartment_miu_nbal_df(compartment_data, miu_data ,nbal_d
     return gis_mapping_data
 
 
+# split the master df, into compartment only, compartment + miu only and compartment + miu + nbal rows only
 def split_expanded_gis_mapping_df(df):
     # Drop *all* geometry-related columns
     df = df.drop(columns=[c for c in df.columns if "geometry" in c], errors="ignore")
@@ -129,6 +223,7 @@ def split_expanded_gis_mapping_df(df):
     return comp_only_df, comp_miu_df, other_df
 
 
+# merge in the tree species data on the master df
 def merge_tree_species_data(master_df, miu_linked_species_data, nbal_linked_species_data, species_data, calculate_flow_boolean):
     # Example: comp_miu_df has one row per compartment/miu/nbal combination
     # miu_linked_species_data has multiple species per miu
@@ -208,6 +303,7 @@ def merge_tree_species_data(master_df, miu_linked_species_data, nbal_linked_spec
     return expanded_df
 
 
+#  merge in the cost model data into master df
 def merge_cost_model_data(master_df,costing_df):
     costing_df = costing_df.rename(columns={"Costing Model Name": "cost_model"})
 
@@ -233,6 +329,8 @@ def merge_cost_model_data(master_df,costing_df):
         how="left"  # keep all expanded_df rows, add costing data
     )
 
+
+#  merge in the prioritization data in the master df
 def merge_prioritization_data(master_df, prioritization_df):
     return master_df.merge(
         prioritization_df,
@@ -240,9 +338,12 @@ def merge_prioritization_data(master_df, prioritization_df):
         how="left"  # keep all expanded_df rows, add costing data
     )
 
+
 # -------------------------------
 # Slope factor
 # -------------------------------
+
+# get the slope factor and set in master df
 def set_slope_factor(df):
     # Define conditions (based on slope ranges)
     conditions = [
@@ -265,6 +366,8 @@ def set_slope_factor(df):
 # -------------------------------
 # Treatment selection
 # -------------------------------
+
+# determine treatment and then set it in the master df
 def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.DataFrame:
     """
     Assign treatment_method to master_df based on norms rules.
@@ -277,8 +380,6 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
     # Helper: find closest density
     def closest_density(value):
         return unique_densities[np.abs(unique_densities - value).argmin()]
-
-
 
     # Priority order for selection
     def choose_method(candidates, age, terrain):
@@ -310,7 +411,7 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
         )
         candidates = norms[mask]
 
-        # If no matches → drop density filter
+        # If no matches -> drop density filter
         if candidates.empty:
             mask = (
                 (norms["growth_form"].str.lower() == row["growth_form"].lower()) &
@@ -319,11 +420,11 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
             )
             candidates = norms[mask]
 
-        # If still no matches → return None
+        # If still no matches -> return None
         if candidates.empty:
             return None
 
-        # If only one → take it
+        # If only one -> take it
         if len(candidates) == 1:
             return candidates.iloc[0]["treatment_method"]
 
@@ -336,10 +437,13 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
 
     return master_df
 
+
 # -------------------------------
 # Cost Support functions
 # -------------------------------
 
+# assign unique ids to entries in gis mapping so that the timesteps resulting data can have an easy link back id to the
+#   gis mapping file
 def assign_unique_ids(*dfs):
     """
     Assign globally unique link_back_id across multiple DataFrames.
@@ -361,6 +465,7 @@ def assign_unique_ids(*dfs):
 # Person days Algorithms
 # -------------------------------
 
+# calculate the person days
 def attach_person_day_factor(full_df: pd.DataFrame, density, norms: pd.DataFrame) -> pd.Series:
     """
     Vectorized: return a Series of ppd values for comp_miu_df
@@ -410,11 +515,11 @@ def attach_person_day_factor(full_df: pd.DataFrame, density, norms: pd.DataFrame
     return merged.set_index("link_back_id").loc[full_df["link_back_id"], "ppd"].reset_index(drop=True)
 
 
-
-
 # -------------------------------
 # Cost Algorithms
 # -------------------------------
+
+# main cost algorithm
 def attach_cost(master_df: pd.DataFrame, timestep_df: pd.DataFrame, follow_up: bool = True) -> pd.Series:
     if follow_up:
         # Merge necessary columns from master_df onto timestep_df
@@ -436,7 +541,7 @@ def attach_cost(master_df: pd.DataFrame, timestep_df: pd.DataFrame, follow_up: b
         cost_optimal = (
                 (merged["person_days"] * merged["Follow-up Cost/Day"] / merged["Follow-up Team Size"]) +
                 (merged["Vehicle Cost/Day"] * merged["person_days_normal"]) +
-                (merged["Cost/Day"] * merged["person_days_normal"])
+                (merged["Cost/Day"] * merged["person_days_normal"]) + (master_df["fuel_cost_per_miu"])
         )
     else:
         # Merge necessary columns from master_df onto timestep_df
@@ -458,21 +563,19 @@ def attach_cost(master_df: pd.DataFrame, timestep_df: pd.DataFrame, follow_up: b
         cost_optimal = (
             (merged["person_days"] * merged["Initial Cost/Day"] / merged["Initial Team Size"]) +
             (merged["Vehicle Cost/Day"] * merged["person_days_normal"]) +
-            (merged["Cost/Day"] * merged["person_days_normal"])
+            (merged["Cost/Day"] * merged["person_days_normal"]) + (master_df["fuel_cost_per_miu"])
         )
 
     return cost_optimal
 
+
 # clearing rules for compartment
+# determine and add cleared now to the timestep
 def attach_cleared_now(
     master_df: pd.DataFrame,
     timestep_df: pd.DataFrame,
     year_budget: float,
 ) -> pd.DataFrame:
-    # print("master_df.shape")
-    # print(master_df.shape)
-    # print("timestep_df.shape")
-    # print(timestep_df.shape)
 
     # Merge metadata into timestep_df
     merged = timestep_df.merge(
@@ -525,15 +628,10 @@ def attach_cleared_now(
     # Restore original row order
     merged = merged.sort_values("_orig_order").drop(columns="_orig_order")
 
-
-    # print("merged.shape")
-    # print(merged.shape)
-
     # Return Series aligned to timestep_df
     return merged["cleared_now"].reset_index(drop=True)
-    # return merged
 
-# determine and add onto cleared fully
+# determine and add cleared fully to the timestep
 def attach_cleared_fully(master_df: pd.DataFrame, timestep_df: pd.DataFrame) -> pd.DataFrame:
     """
     Update cleared_fully in timestep_df:
@@ -561,13 +659,14 @@ def attach_cleared_fully(master_df: pd.DataFrame, timestep_df: pd.DataFrame) -> 
 # -------------------------------
 # Density Algorithms
 # -------------------------------
-## directly inserted in costing loops, equation can be broadcasted into the arrays efficiently
+## directly inserted in costing loops below, equation can be broadcasted into the arrays efficiently
+
 
 # -------------------------------
 # Flow Algorithms
 # -------------------------------
 
-# match the MAR to the compartment id in the master df
+# attach the matched Mean Annual Runoff (MAR) to the compartment id in the master df
 def attach_runoff_to_compartment(runoff_data: pd.DataFrame, main_df: pd.DataFrame) -> pd.DataFrame:
     """
         Attach runoff values to the main_df based on matching compt_id.
@@ -593,6 +692,8 @@ def attach_runoff_to_compartment(runoff_data: pd.DataFrame, main_df: pd.DataFram
 
     return merged_df
 
+
+# Attach the initial flow values to the initial timestep
 def attach_flow_initial_timestep(master_df, current_timestep, follow_up=True):
     # Merge only once on link_back_id
     if follow_up:
@@ -630,14 +731,10 @@ def attach_flow_initial_timestep(master_df, current_timestep, follow_up=True):
         )
 
 
-    # # Attach new column to the original df (preserve structure)
-    # timestep_df_now = current_timestep.copy()
-    # timestep_df_now["flow_optimal"] = flow_optimal
-    #
-    # return timestep_df_now
-
     return flow_optimal
 
+
+# Attach the flow values to the current timestep, for follow up
 def attach_flow(master_df, current_timestep, follow_up=True):
     # Merge only once on link_back_id
     if follow_up:
@@ -675,16 +772,10 @@ def attach_flow(master_df, current_timestep, follow_up=True):
         )
 
 
-    # # Attach new column to the original df (preserve structure)
-    # timestep_df_now = current_timestep.copy()
-    # timestep_df_now["flow_optimal"] = flow_optimal
-    #
-    # return timestep_df_now
-
     return flow_optimal
 
 
-
+# post process the final results
 def postprocess_yearly_results(dicts_full, comp_miu_df, follow_up_df, com_only_df):
     # Extract only needed columns from comp_miu_df & follow_up_df
     id_lookup = pd.concat([
@@ -724,10 +815,14 @@ def postprocess_yearly_results(dicts_full, comp_miu_df, follow_up_df, com_only_d
     return dicts_full
 
 
-
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+"""
+The main costing function loop is below, you need to call this function to get a costing for the MUCP tool.
 
+The example file shows how to read your support and file data, and how to pass those information into the tool.
+
+"""
 
 #### MAIN COSTING FUNCTION
 def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, miu_linked_species_data, nbal_linked_species_data, compartment_priorities_data, growth_forms, treatment_methods, clearing_norms_df, species, costing_data, budget_plan_1, budget_plan_2, budget_plan_3, budget_plan_4, escalation_plan_1, escalation_plan_2, escalation_plan_3, escalation_plan_4, standard_working_day, working_year_days, start_year, years_to_run, currency, save_results, cost_plan_mappings, categories, prioritization_model_data):
@@ -735,27 +830,19 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     # step 1 fixed variables
     ## prioritization
     prioritization_df = get_prioritization(prioritization_model_data, categories)
-    # print("prioritization")
-    # print(prioritization_df.columns)
-    # print(prioritization_df.iloc[0])
-
 
     # will flow be calculated?
     calculate_flow_boolean = "runoff" in compartment_priorities_data.columns
 
-
     # split the clearing norms into initial and followup
     clearing_norms_df_followup = clearing_norms_df[clearing_norms_df["process"] == "follow-up"].copy()
     clearing_norms_df_initial = clearing_norms_df[clearing_norms_df["process"] == "initial"].copy()
-    # print(clearing_norms_df_followup)
-    # print(clearing_norms_df_initial)
 
     # step 2 merge the gis mapping with mui, nbal and compt
     master_data = merge_gis_mapping_compartment_miu_nbal_df(compartment_data, miu_data, nbal_data, gis_mapping_data)
 
     # step 3 split master data into sections appropriate for running separately based on mui, nbal and compt
     comp_only_df, comp_miu_df, follow_up_df = split_expanded_gis_mapping_df(master_data)
-
 
     # step 4 cost mapping, map cost code to the actual name of the model:
     comp_miu_df['cost_model'] = comp_miu_df['costing'].map(cost_plan_mappings)
@@ -766,31 +853,27 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     comp_miu_df["riparian_c"] = comp_miu_df["riparian_c"].map(mapping)
     follow_up_df["riparian_c"] = follow_up_df["riparian_c"].map(mapping)
 
-
-    # step 5 set the slope factor
+    # step 6 set the slope factor
     comp_miu_df["slope_factor"] = set_slope_factor(comp_miu_df)
     follow_up_df["slope_factor"] = set_slope_factor(follow_up_df)
 
-
-    # step 6 insert tree species data
+    # step 7 insert tree species data
     comp_miu_df = merge_tree_species_data(comp_miu_df,miu_linked_species_data, nbal_linked_species_data,species,calculate_flow_boolean)
     follow_up_df = merge_tree_species_data(follow_up_df,miu_linked_species_data, nbal_linked_species_data,species,calculate_flow_boolean)
 
-
-    # step 7 insert the cost model parameters
+    # step 8 insert the cost model parameters
     comp_miu_df = merge_cost_model_data(comp_miu_df,costing_data)
     follow_up_df = merge_cost_model_data(follow_up_df,costing_data)
 
-
-    # step 8 merge the priority into the data
+    # step 9 merge the priority into the data
     comp_miu_df = merge_prioritization_data(comp_miu_df, prioritization_df)
     follow_up_df = merge_prioritization_data(follow_up_df, prioritization_df)
 
-    # step 9 determine treatment method
+    # step 10 determine treatment method
     comp_miu_df = treatment_selection(comp_miu_df, clearing_norms_df_initial)
     follow_up_df = treatment_selection(follow_up_df, clearing_norms_df_followup)
 
-    # step 10 add on the fuel cost per miu
+    # step 11 add on the fuel cost per miu
     # Count how many miu_id per compt_id
     miu_counts_initial = comp_miu_df.groupby("compt_id")["miu_id"].transform("nunique")
     miu_counts_followup = follow_up_df.groupby("compt_id")["miu_id"].transform("nunique")
@@ -799,30 +882,19 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     comp_miu_df["fuel_cost_per_miu"] = (comp_miu_df["Fuel Cost/Hour"] * comp_miu_df["drive_time"] / (miu_counts_initial * 10))
     follow_up_df["fuel_cost_per_miu"] = (follow_up_df["Fuel Cost/Hour"] * follow_up_df["drive_time"] / (miu_counts_followup * 10))
 
-    # step 10 drop unneccesary columns
+    # step 12 drop unneccesary columns
     unnecessary_columns_to_drop = ["stage", "area_miu", "costing", "area_ha", "slope"]
     comp_miu_df = comp_miu_df.drop(columns=unnecessary_columns_to_drop, errors="ignore")
     follow_up_df = follow_up_df.drop(columns=unnecessary_columns_to_drop, errors="ignore")
 
-
-
-    # step 11 propagate budgets
+    # step 13 propagate budgets
     budgets = propagate_budgets_for_all_years(start_year, years_to_run, budget_plan_1, budget_plan_2, budget_plan_3, budget_plan_4, escalation_plan_1, escalation_plan_2, escalation_plan_3, escalation_plan_4)
-    # print("budgets kirodh")
-    # print(budgets)
-    # step 12 insert flow mean annual runoff if its to be calculated
+
+    # step 14 insert flow mean annual runoff if its to be calculated
     comp_miu_df = attach_runoff_to_compartment(compartment_priorities_data, comp_miu_df)
     follow_up_df = attach_runoff_to_compartment(compartment_priorities_data, follow_up_df)
 
-
-
-
-
-
-    # print(prioritization_df)
-    # print(budgets)
-
-    # step 13 assign unique ids to link back to the dfs
+    # step 15 assign unique ids to link back to the dfs
     comp_only_df, comp_miu_df, follow_up_df = assign_unique_ids(
         comp_only_df, comp_miu_df, follow_up_df
     )
@@ -837,11 +909,12 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     # print(follow_up_df.columns)
     # print(follow_up_df.iloc[0])
 
-    ###
-    # step 13 deal with year 1, i.e. initial stuff
+
 
     #########################################################################################################
-    # step 13 deal with year years
+    # main costing algorithm
+    #########################################################################################################
+    # deal with year 1
 
     # budget dictionaries
     yearly_results_o = {} # optimal
@@ -853,7 +926,9 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     # --- Timestep 0 (initial year) ---
     initial_year = start_year
 
+    # ******************
     ### INITIAL
+    # ******************
     timestep_df_0_miu_initial = pd.DataFrame({
         "link_back_id": comp_miu_df["link_back_id"],
     })
@@ -872,21 +947,23 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     # 3. densities
     # density_optimal is for assuming all densities were done
     # density is the compartments that werent cleared are densified, and the cleared ones are reduced
-    timestep_df_0_miu_initial["density_optimal"] = calculate_species_density(comp_miu_df["idenscode"], comp_miu_df["initial_reduction"])
+    timestep_df_0_miu_initial["density_optimal"] = calculate_species_density(comp_miu_df["idenscode"], -1*comp_miu_df["initial_reduction"])
 
     # 4. flow
     if calculate_flow_boolean:
         timestep_df_0_miu_initial["flow_optimal"] = attach_flow_initial_timestep(comp_miu_df, timestep_df_0_miu_initial, follow_up=False)
 
 
-
+    # ******************
     ### FOLLOW UP
+    # ******************
+
     # construct the initial time step follow-up calculations
     timestep_df_0_nbal_followup = pd.DataFrame({
         "link_back_id": follow_up_df["link_back_id"],
     })
 
-    # ppd
+    # 1. person days
     timestep_df_0_nbal_followup["person_days_factor"] = attach_person_day_factor(follow_up_df, follow_up_df["idenscode"], clearing_norms_df_followup)
     # normal person days
     timestep_df_0_nbal_followup["person_days_normal"] = calculate_normal_person_days(timestep_df_0_nbal_followup["person_days_factor"], follow_up_df["area"])
@@ -897,37 +974,38 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     # cost_optimal
     timestep_df_0_nbal_followup["cost_optimal"] = attach_cost(follow_up_df,timestep_df_0_nbal_followup)
 
-    # densities
+    # 3. densities
     # density_optimal is for assuming all densities were done
     # density is the compartments that werent cleared are densified, ad the cleared ones are reduced
-    timestep_df_0_nbal_followup["density_optimal"] = calculate_species_density(follow_up_df["idenscode"], follow_up_df["initial_reduction"])
+    timestep_df_0_nbal_followup["density_optimal"] = calculate_species_density(follow_up_df["idenscode"], -1*follow_up_df["initial_reduction"])
 
-    # flow
+    # 4. flow
     if calculate_flow_boolean:
         timestep_df_0_nbal_followup["flow_optimal"] = attach_flow_initial_timestep(follow_up_df, timestep_df_0_nbal_followup)
 
 
-
-    ### next phase
-    # Combine timestep DataFrames, for each budget
+    # ******************
+    ### NEXT PHASE, COMBINATION of the initial and follow up for first time step
+    # ******************
+    # 1. Combine timestep DataFrames, for each budget
     timestep_df_0_optimal = pd.concat(
         [timestep_df_0_miu_initial, timestep_df_0_nbal_followup],
         ignore_index=True  # resets index, but keeps link_back_id intact
     )
 
-    # Remove "_optimal" from column names
+    # 2. Remove "_optimal" from column names
     timestep_df_0_optimal = timestep_df_0_optimal.rename(
         columns=lambda c: c.replace("_optimal", "")
     ).copy()
 
-    # Create copies for timestep_df_0_1 through timestep_df_0_4
+    # 4. Create copies for timestep_df_0_1 through timestep_df_0_4
     timestep_df_0_1 = timestep_df_0_optimal.copy()
     timestep_df_0_2 = timestep_df_0_optimal.copy()
     timestep_df_0_3 = timestep_df_0_optimal.copy()
     timestep_df_0_4 = timestep_df_0_optimal.copy()
 
 
-    # combine the initial master df into one, as all will be follow up from now on after calculating the first time step
+    # 5. combine the initial master df into one, as all will be follow up from now on after calculating the first time step
     master_data = pd.concat(
         # [comp_only_df, comp_miu_df, follow_up_df], # remember to add back on the compartment only entries
         [comp_miu_df, follow_up_df],
@@ -935,7 +1013,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     )
 
 
-    # Add a cleared fully column, initial cleared fully previously variable
+    # 6. Add a cleared fully column, initial cleared fully previously variable
     timestep_df_0_optimal["cleared_fully_previously"] = False
     timestep_df_0_1["cleared_fully_previously"] = False
     timestep_df_0_2["cleared_fully_previously"] = False
@@ -943,15 +1021,15 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     timestep_df_0_4["cleared_fully_previously"] = False
 
 
-    # add the prioritizations on:
-    timestep_df_0_optimal["priority"] = attach_prioritization(master_data, timestep_df_0_1)
+    # 7. add the prioritizations on:
+    timestep_df_0_optimal["priority"] = attach_prioritization(master_data, timestep_df_0_1) # can use same as any plan
     timestep_df_0_1["priority"] = attach_prioritization(master_data, timestep_df_0_1)
     timestep_df_0_2["priority"] = attach_prioritization(master_data, timestep_df_0_2)
     timestep_df_0_3["priority"] = attach_prioritization(master_data, timestep_df_0_3)
     timestep_df_0_4["priority"] = attach_prioritization(master_data, timestep_df_0_4)
 
 
-    # do the clearing and the final values for person days, density etc for each budget
+    # 8. do the clearing and the final values for person days, density etc for each budget
     # clearing now booleans
     timestep_df_0_optimal["cleared_now"] = True # for optimal all is cleared
     timestep_df_0_1["cleared_now"] = attach_cleared_now(master_data, timestep_df_0_1, budgets[np.int64(initial_year)]['plan_1'])
@@ -959,41 +1037,44 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     timestep_df_0_3["cleared_now"] = attach_cleared_now(master_data, timestep_df_0_3, budgets[np.int64(initial_year)]['plan_3'])
     timestep_df_0_4["cleared_now"] = attach_cleared_now(master_data, timestep_df_0_4, budgets[np.int64(initial_year)]['plan_4'])
 
-    # density per budget
+
+    # 9. density per budget
     # Pick factor depending on cleared_now
-    density_factors_initial_1 = np.where(timestep_df_0_1["cleared_now"], master_data["initial_reduction"], master_data["densification"])
-    density_factors_initial_2 = np.where(timestep_df_0_2["cleared_now"], master_data["initial_reduction"], master_data["densification"])
-    density_factors_initial_3 = np.where(timestep_df_0_3["cleared_now"], master_data["initial_reduction"], master_data["densification"])
-    density_factors_initial_4 = np.where(timestep_df_0_4["cleared_now"], master_data["initial_reduction"], master_data["densification"])
+    density_factors_initial_1 = np.where(timestep_df_0_1["cleared_now"], -1*master_data["initial_reduction"], master_data["densification"])
+    density_factors_initial_2 = np.where(timestep_df_0_2["cleared_now"], -1*master_data["initial_reduction"], master_data["densification"])
+    density_factors_initial_3 = np.where(timestep_df_0_3["cleared_now"], -1*master_data["initial_reduction"], master_data["densification"])
+    density_factors_initial_4 = np.where(timestep_df_0_4["cleared_now"], -1*master_data["initial_reduction"], master_data["densification"])
     # Compute density
-    timestep_df_0_1["density"] = calculate_species_density(master_data["idenscode"], density_factors_initial_1)
     timestep_df_0_1["density"] = calculate_species_density(master_data["idenscode"], density_factors_initial_1)
     timestep_df_0_2["density"] = calculate_species_density(master_data["idenscode"], density_factors_initial_2)
     timestep_df_0_3["density"] = calculate_species_density(master_data["idenscode"], density_factors_initial_3)
     timestep_df_0_4["density"] = calculate_species_density(master_data["idenscode"], density_factors_initial_4)
 
-    # person days per budget
-    # 2.5 person days adjustment after clearing
+
+    # 10. person days per budget
     # adjusted person days:
     timestep_df_0_1["person_days"] = np.where(timestep_df_0_1["cleared_now"], timestep_df_0_1["person_days"], 0)
     timestep_df_0_2["person_days"] = np.where(timestep_df_0_2["cleared_now"], timestep_df_0_2["person_days"], 0)
     timestep_df_0_3["person_days"] = np.where(timestep_df_0_3["cleared_now"], timestep_df_0_3["person_days"], 0)
     timestep_df_0_4["person_days"] = np.where(timestep_df_0_4["cleared_now"], timestep_df_0_4["person_days"], 0)
 
-    # cost per budget
+
+    # 11. cost per budget
     timestep_df_0_1["cost"] = np.where(timestep_df_0_1["cleared_now"], timestep_df_0_1["cost"], 0)
     timestep_df_0_2["cost"] = np.where(timestep_df_0_2["cleared_now"], timestep_df_0_2["cost"], 0)
     timestep_df_0_3["cost"] = np.where(timestep_df_0_3["cleared_now"], timestep_df_0_3["cost"], 0)
     timestep_df_0_4["cost"] = np.where(timestep_df_0_4["cleared_now"], timestep_df_0_4["cost"], 0)
 
-    # flow per budget
+
+    # 12. flow per budget
     if calculate_flow_boolean:
         timestep_df_0_1["flow"] = np.where(timestep_df_0_1["cleared_now"], timestep_df_0_1["flow"], 0)
         timestep_df_0_2["flow"] = np.where(timestep_df_0_2["cleared_now"], timestep_df_0_2["flow"], 0)
         timestep_df_0_3["flow"] = np.where(timestep_df_0_3["cleared_now"], timestep_df_0_3["flow"], 0)
         timestep_df_0_4["flow"] = np.where(timestep_df_0_4["cleared_now"], timestep_df_0_4["flow"], 0)
 
-    # cleared fully booleans
+
+    # 13. cleared fully booleans
     timestep_df_0_optimal["cleared_fully"] = attach_cleared_fully(master_data,timestep_df_0_optimal)
     timestep_df_0_1["cleared_fully"] = attach_cleared_fully(master_data,timestep_df_0_1)
     timestep_df_0_2["cleared_fully"] = attach_cleared_fully(master_data,timestep_df_0_2)
@@ -1001,8 +1082,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     timestep_df_0_4["cleared_fully"] = attach_cleared_fully(master_data,timestep_df_0_4)
 
 
-
-    # Save as first timestep df , cut out the right columns and rename
+    # 14. Save as first timestep df , cut out the right columns and rename
     yearly_results_o[initial_year] = timestep_df_0_optimal
     yearly_results_1[initial_year] = timestep_df_0_1
     yearly_results_2[initial_year] = timestep_df_0_2
@@ -1010,7 +1090,11 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     yearly_results_4[initial_year] = timestep_df_0_4
 
 
-    # --- Timestep 1+ (follow-up years) ---
+    # timestep one complete, loop through year 2 etc.
+    # ----------------------------------------
+    # YEAR 2 until END
+    # ----------------------------------------
+    # step 0: --- Timestep 1+ (follow-up years) ---
     prev_year_df_optimal = timestep_df_0_optimal.copy()
     prev_year_df_1 = timestep_df_0_1.copy()
     prev_year_df_2 = timestep_df_0_2.copy()
@@ -1018,12 +1102,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     prev_year_df_4 = timestep_df_0_4.copy()
 
     for year in range(start_year + 1, start_year + years_to_run):
-        # print(budgets[year]["plan_1"])
-        # print(budgets[year]["plan_2"])
-        # print(budgets[year]["plan_3"])
-        # print(budgets[year]["plan_4"])
-
-        # DONE step 1: create stub of new timestep
+        # step 1: create stub of new timestep
         # Create timestep_now with selected and renamed columns
         timestep_now_optimal = timestep_df_0_optimal.loc[:, ["link_back_id", "priority", "cleared_fully"]].rename(columns={"cleared_fully": "cleared_fully_previously"}).copy()
         timestep_now_1 = timestep_df_0_1.loc[:, ["link_back_id", "priority", "cleared_fully"]].rename(columns={"cleared_fully": "cleared_fully_previously"}).copy()
@@ -1032,7 +1111,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_4 = timestep_df_0_4.loc[:, ["link_back_id", "priority", "cleared_fully"]].rename(columns={"cleared_fully": "cleared_fully_previously"}).copy()
 
 
-        # align the previous timestep data to the master_data, this is to ensure when you slice data they correspond to the same rows
+        # step 2: align the previous timestep data to the master_data, this is to ensure when you slice data they correspond to the same rows
         prev_year_df_optimal = (prev_year_df_optimal.set_index("link_back_id").reindex(master_data["link_back_id"]).reset_index())
         prev_year_df_1 = (prev_year_df_1.set_index("link_back_id").reindex(master_data["link_back_id"]).reset_index())
         prev_year_df_2 = (prev_year_df_2.set_index("link_back_id").reindex(master_data["link_back_id"]).reset_index())
@@ -1040,7 +1119,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         prev_year_df_4 = (prev_year_df_4.set_index("link_back_id").reindex(master_data["link_back_id"]).reset_index())
 
 
-        # ppd
+        # step 3: ppd
         # calculate the person days factor
         timestep_now_optimal["person_days_factor"] = attach_person_day_factor(master_data, prev_year_df_optimal["density"], clearing_norms_df_followup)
         timestep_now_1["person_days_factor"] = attach_person_day_factor(master_data, prev_year_df_1["density"], clearing_norms_df_followup)
@@ -1048,21 +1127,24 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_3["person_days_factor"] = attach_person_day_factor(master_data, prev_year_df_3["density"], clearing_norms_df_followup)
         timestep_now_4["person_days_factor"] = attach_person_day_factor(master_data, prev_year_df_4["density"], clearing_norms_df_followup)
 
-        # normal person days
+
+        # step 4: normal person days
         timestep_now_optimal["person_days_normal"] = calculate_normal_person_days(timestep_now_optimal["person_days_factor"], master_data["area"])
         timestep_now_1["person_days_normal"] = calculate_normal_person_days(timestep_now_1["person_days_factor"], master_data["area"])
         timestep_now_2["person_days_normal"] = calculate_normal_person_days(timestep_now_2["person_days_factor"], master_data["area"])
         timestep_now_3["person_days_normal"] = calculate_normal_person_days(timestep_now_3["person_days_factor"], master_data["area"])
         timestep_now_4["person_days_normal"] = calculate_normal_person_days(timestep_now_4["person_days_factor"], master_data["area"])
 
-        # adjusted person days:
+
+        # step 5: adjusted person days:
         timestep_now_optimal["person_days"] = calculate_adjusted_person_days(timestep_now_optimal["person_days_normal"], master_data["walk_time"], master_data["drive_time"],master_data["slope_factor"], standard_working_day)
         timestep_now_1["person_days"] = calculate_adjusted_person_days(timestep_now_1["person_days_normal"], master_data["walk_time"], master_data["drive_time"],master_data["slope_factor"], standard_working_day)
         timestep_now_2["person_days"] = calculate_adjusted_person_days(timestep_now_2["person_days_normal"], master_data["walk_time"], master_data["drive_time"],master_data["slope_factor"], standard_working_day)
         timestep_now_3["person_days"] = calculate_adjusted_person_days(timestep_now_3["person_days_normal"], master_data["walk_time"], master_data["drive_time"],master_data["slope_factor"], standard_working_day)
         timestep_now_4["person_days"] = calculate_adjusted_person_days(timestep_now_4["person_days_normal"], master_data["walk_time"], master_data["drive_time"],master_data["slope_factor"], standard_working_day)
 
-        # 2. costs
+
+        # step 6: costs
         # cost_optimal
         timestep_now_optimal["cost"] = attach_cost(master_data, timestep_now_optimal)
         timestep_now_1["cost"] = attach_cost(master_data, timestep_now_1)
@@ -1071,14 +1153,15 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_4["cost"] = attach_cost(master_data, timestep_now_4)
 
 
-        # assign old densities to the timestep, so it can be used in the costing and then assign new densities over it
+        # step 7: assign old densities to the timestep, so it can be used in the costing and then assign new densities over it
         timestep_now_optimal["density"] = timestep_now_optimal["link_back_id"].map(prev_year_df_optimal.set_index("link_back_id")["density"])
         timestep_now_1["density"] = timestep_now_1["link_back_id"].map(prev_year_df_1.set_index("link_back_id")["density"])
         timestep_now_2["density"] = timestep_now_2["link_back_id"].map(prev_year_df_2.set_index("link_back_id")["density"])
         timestep_now_3["density"] = timestep_now_3["link_back_id"].map(prev_year_df_3.set_index("link_back_id")["density"])
         timestep_now_4["density"] = timestep_now_4["link_back_id"].map(prev_year_df_4.set_index("link_back_id")["density"])
 
-        # do the clearing and the final values for person days, density etc for each budget
+
+        # step 8: do the clearing and the final values for person days, density etc for each budget
         # clearing now booleans
         timestep_now_optimal["cleared_now"] = True  # for optimal all is cleared
         timestep_now_1["cleared_now"] = attach_cleared_now(master_data, timestep_now_1,budgets[np.int64(year)]['plan_1'])
@@ -1087,13 +1170,13 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_4["cleared_now"] = attach_cleared_now(master_data, timestep_now_4,budgets[np.int64(year)]['plan_4'])
 
 
-        # density per budget (assign over the old densities)
+        # step 9: density per budget (assign over the old densities)
         # Pick factor depending on cleared_now
-        density_factors_now_optimal = np.where(timestep_now_optimal["cleared_now"], master_data["initial_reduction"],master_data["densification"])
-        density_factors_now_1 = np.where(timestep_now_1["cleared_now"], master_data["initial_reduction"],master_data["densification"])
-        density_factors_now_2 = np.where(timestep_now_2["cleared_now"], master_data["initial_reduction"],master_data["densification"])
-        density_factors_now_3 = np.where(timestep_now_3["cleared_now"], master_data["initial_reduction"],master_data["densification"])
-        density_factors_now_4 = np.where(timestep_now_4["cleared_now"], master_data["initial_reduction"],master_data["densification"])
+        density_factors_now_optimal = np.where(timestep_now_optimal["cleared_now"], -1*master_data["initial_reduction"],master_data["densification"])
+        density_factors_now_1 = np.where(timestep_now_1["cleared_now"], -1*master_data["initial_reduction"],master_data["densification"])
+        density_factors_now_2 = np.where(timestep_now_2["cleared_now"], -1*master_data["initial_reduction"],master_data["densification"])
+        density_factors_now_3 = np.where(timestep_now_3["cleared_now"], -1*master_data["initial_reduction"],master_data["densification"])
+        density_factors_now_4 = np.where(timestep_now_4["cleared_now"], -1*master_data["initial_reduction"],master_data["densification"])
         # Compute density
         timestep_now_optimal["density"] = calculate_species_density(prev_year_df_optimal["density"], density_factors_now_optimal)
         timestep_now_1["density"] = calculate_species_density(prev_year_df_1["density"], density_factors_now_1)
@@ -1101,7 +1184,8 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_3["density"] = calculate_species_density(prev_year_df_3["density"], density_factors_now_3)
         timestep_now_4["density"] = calculate_species_density(prev_year_df_4["density"], density_factors_now_4)
 
-        # calculate flow:
+
+        # step 10: calculate flow:
         if calculate_flow_boolean:
             timestep_now_optimal["flow"] = attach_flow(master_data, timestep_now_optimal)
             timestep_now_1["flow"] = attach_flow(master_data, timestep_now_1)
@@ -1109,8 +1193,9 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
             timestep_now_3["flow"] = attach_flow(master_data, timestep_now_3)
             timestep_now_4["flow"] = attach_flow(master_data, timestep_now_4)
 
-        # person days per budget
-        # 2.5 person days adjustment after clearing
+
+        # step 11: person days per budget
+        # person days adjustment after clearing
         # adjusted person days:
         timestep_now_optimal["person_days"] = np.where(timestep_now_optimal["cleared_now"], timestep_now_optimal["person_days"], 0)
         timestep_now_1["person_days"] = np.where(timestep_now_1["cleared_now"], timestep_now_1["person_days"], 0)
@@ -1118,7 +1203,8 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_3["person_days"] = np.where(timestep_now_3["cleared_now"], timestep_now_3["person_days"], 0)
         timestep_now_4["person_days"] = np.where(timestep_now_4["cleared_now"], timestep_now_4["person_days"], 0)
 
-        # cost per budget
+
+        # step 12: cost per budget
         timestep_now_optimal["cost"] = np.where(timestep_now_optimal["cleared_now"], timestep_now_optimal["cost"], 0)
         timestep_now_1["cost"] = np.where(timestep_now_1["cleared_now"], timestep_now_1["cost"], 0)
         timestep_now_2["cost"] = np.where(timestep_now_2["cleared_now"], timestep_now_2["cost"], 0)
@@ -1126,8 +1212,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_4["cost"] = np.where(timestep_now_4["cleared_now"], timestep_now_4["cost"], 0)
 
 
-
-        # flow per budget
+        # step 13: flow per budget
         if calculate_flow_boolean:
             timestep_now_optimal["flow"] = np.where(timestep_now_optimal["cleared_now"], timestep_now_optimal["flow"], 0)
             timestep_now_1["flow"] = np.where(timestep_now_1["cleared_now"], timestep_now_1["flow"], 0)
@@ -1135,7 +1220,8 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
             timestep_now_3["flow"] = np.where(timestep_now_3["cleared_now"], timestep_now_3["flow"], 0)
             timestep_now_4["flow"] = np.where(timestep_now_4["cleared_now"], timestep_now_4["flow"], 0)
 
-        # cleared fully booleans
+
+        # step 14: cleared fully booleans
         timestep_now_optimal["cleared_fully"] = attach_cleared_fully(master_data, timestep_now_optimal)
         timestep_now_1["cleared_fully"] = attach_cleared_fully(master_data, timestep_now_1)
         timestep_now_2["cleared_fully"] = attach_cleared_fully(master_data, timestep_now_2)
@@ -1143,277 +1229,24 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         timestep_now_4["cleared_fully"] = attach_cleared_fully(master_data, timestep_now_4)
 
 
-        # Step timestep df
+        # step 15: Step timestep df
         yearly_results_o[year] = timestep_now_optimal
         yearly_results_1[year] = timestep_now_1
         yearly_results_2[year] = timestep_now_2
         yearly_results_3[year] = timestep_now_3
         yearly_results_4[year] = timestep_now_4
 
-        # assign previous timesteps
+
+        # step 16: assign previous timesteps
         prev_year_df_optimal = timestep_now_optimal.copy()
         prev_year_df_1 = timestep_now_1.copy()
         prev_year_df_2 = timestep_now_2.copy()
         prev_year_df_3 = timestep_now_3.copy()
         prev_year_df_4 = timestep_now_4.copy()
 
-    # print("BEFORE")
-    # print(yearly_results_o)
-    # print(yearly_results_1)
-    # print(yearly_results_2)
-    # print(yearly_results_3)
-    # print(yearly_results_4)
+
     # Post processing
     final_results = postprocess_yearly_results([yearly_results_o, yearly_results_1, yearly_results_2, yearly_results_3, yearly_results_4],comp_miu_df,follow_up_df,comp_only_df)
-    # print("AFTER")
-    # print(final_results[0])
-    # print(final_results[1])
-    # print(final_results[2])
-    # print(final_results[3])
-    # print(final_results[4][2026].columns)
-
-    year = 2026
-    costs_per_budget = {}
-
-    # loop through all 5 budgets
-    for i in range(5):
-        df = final_results[i][year]
-        costs_per_budget[f"budget_{i + 1}"] = df["cost"].reset_index(drop=True)
-
-    # # combine into one DataFrame for comparison
-    # comparison_df = pd.concat(costs_per_budget, axis=1)
-
-    # print(comparison_df)
 
     #########################################################################################################
-    # Final master dataframe
-    # print("types")
-    # print(type(final_results))
-    # print(type(final_results[0][2025]))
-    # print(type(budgets[2025]))
     return final_results, budgets
-
-# def calculate_budgets(self):
-#     """
-#     Main budgeting loop: calculate monthly compartment budgets over multiple years.
-#
-#     Returns:
-#         final_budgets_yearly: list of DataFrames with yearly results for each budget option.
-#     """
-#     # -----------------------------
-#     # 1. Validate basic input parameters
-#     # -----------------------------
-#     number_of_years = self.mucp_input_file.planning_years.item()
-#     working_day_hours = self.mucp_input_file.operations_working_day_hours.item()
-#     working_year_days = self.mucp_input_file.operations_working_year_days.item()
-#
-#     if number_of_years > 50 or working_day_hours > 16 or working_year_days > 300:
-#         return []
-#
-#     # -----------------------------
-#     # 2. Prepare initial setup dataframe
-#     # -----------------------------
-#     miu_data = self.miu_linked_species_file.data.copy()
-#     nbal_data = self.nbal_linked_species_file.data.copy()
-#     gis_data = self.gis_file.data.copy()
-#
-#     # Merge NBAL and MIU data with GIS mapping
-#     nbal_initial = pd.merge(gis_data[gis_data['nbal_id'].notnull()], nbal_data, on='nbal_id', how='left')
-#     miu_initial = pd.merge(gis_data[gis_data['nbal_id'].isnull()], miu_data, on='miu_id', how='left')
-#     initial_setup = pd.concat([nbal_initial, miu_initial], ignore_index=True)
-#     initial_setup = initial_setup.rename(columns={'idenscode': 'density'})
-#
-#     # -----------------------------
-#     # 3. Populate constants
-#     # -----------------------------
-#     initial_setup['initial'] = initial_setup['nbal_id'].apply(self.is_initial_treatment)
-#     initial_setup['riparian'] = initial_setup['miu_id'].apply(self.get_riparian)
-#
-#     # Vectorized compartment info
-#     initial_setup[['slope', 'walk_time', 'drive_time', 'costing_code', 'growth_condition']] = \
-#         pd.DataFrame(initial_setup['compt_id'].map(self.get_compartment_info).tolist(), index=initial_setup.index)
-#
-#     initial_setup[['initial_density_reduction', 'followup_density_reduction', 'densification', 'treatment_frequency',
-#                    'growth_form']] = \
-#         pd.DataFrame(initial_setup['species'].map(self.get_species_constants).tolist(), index=initial_setup.index)
-#
-#     initial_setup['flow_reduction_factor'] = initial_setup.apply(
-#         lambda row: self.get_flow_reduction_factor(row['compt_id'], row['age'], row['species'],
-#                                                    row['growth_condition']), axis=1
-#     )
-#
-#     initial_setup[
-#         ['cost_plan', 'initial_team_size', 'initial_cost_per_day', 'followup_team_size', 'followup_cost_per_day',
-#          'vehicle_cost_per_day', 'fuel_cost_per_hour', 'daily_cost', 'maintenance_level']] = \
-#         pd.DataFrame(initial_setup['costing_code'].map(self.get_costing_model).tolist(), index=initial_setup.index)
-#
-#     # -----------------------------
-#     # 4. Remove error rows and adjust density reductions
-#     # -----------------------------
-#     required_cols = ['compt_id', 'area', 'costing_code', 'cost_plan', 'density', 'initial', 'growth_form', 'walk_time',
-#                      'drive_time', 'area']
-#     error_rows_df = initial_setup[initial_setup[required_cols].isna().any(axis=1)].copy()
-#     initial_setup.dropna(subset=required_cols, inplace=True)
-#
-#     initial_setup[['initial_density_reduction', 'followup_density_reduction']] *= -1
-#
-#     # -----------------------------
-#     # 5. Additional setup: slope factor, prioritization, MAR
-#     # -----------------------------
-#     initial_setup['slope_factor'] = initial_setup['slope'].map(self.get_slope_factor)
-#     prioritization = self.get_prioritization()
-#     initial_setup['prioritization'] = initial_setup["compt_id"].map(
-#         lambda c: self.set_prioritization(c, prioritization))
-#
-#     mar_cols = ["mean_annual_runoff", "mean annual runoff", "mar", "annual runoff", "mean runoff", "mean_runoff",
-#                 "annual_runoff", "runoff"]
-#     mar_columns = [col for col in self.compartment_priority_file.data.columns if col in mar_cols]
-#     initial_setup['mean_annual_runoff'] = initial_setup['compt_id'].map(
-#         lambda c: self.set_mean_annual_runoff_per_compartment(c, self.compartment_priority_file.data, mar_columns)
-#     )
-#
-#     # -----------------------------
-#     # 6. Ensure non-zero team sizes/costs
-#     # -----------------------------
-#     initial_setup['initial_team_size'].replace(0, 1, inplace=True)
-#     initial_setup['initial_cost_per_day'].replace(0, 1, inplace=True)
-#     initial_setup['followup_team_size'].replace(0, 1, inplace=True)
-#     initial_setup['followup_cost_per_day'].replace(0, 1, inplace=True)
-#
-#     # -----------------------------
-#     # 7. Map categorical values to integers for speed
-#     # -----------------------------
-#     initial_setup.iloc[:, 18] = initial_setup.iloc[:, 18].map(self.mapping_growth_form)
-#     initial_setup.iloc[:, 6] = initial_setup.iloc[:, 6].map(self.mapping_age)
-#     initial_setup.iloc[:, 8] = initial_setup.iloc[:, 8].map(self.mapping_riparian)
-#
-#     # -----------------------------
-#     # 8. Initialize timestep 0
-#     # -----------------------------
-#     time_step_0 = pd.DataFrame({
-#         'density': initial_setup['density'],
-#         'person_days_normal': 0,
-#         'person_days': 0,
-#         'flow': 0,
-#         'cost': 0,
-#         'is_cleared': False,
-#         'initial': initial_setup['initial']
-#     })
-#
-#     # -----------------------------
-#     # 9. Compute yearly funds and treatment steps
-#     # -----------------------------
-#     financial_funds = self.get_yearly_funds(number_of_years)
-#     financial_values = financial_funds.values
-#     treatment_frequencies = initial_setup['treatment_frequency'].unique().tolist()
-#     if 12 not in treatment_frequencies:
-#         treatment_frequencies.append(12)
-#     total_steps = number_of_years * 12 + 1
-#
-#     # Create treatment mask matrix for timesteps
-#     row_indices = np.arange(total_steps)
-#     step_mask = pd.DataFrame({f: row_indices % f for f in treatment_frequencies}).mask(lambda x: x.ne(0), np.nan)
-#     step_mask = step_mask.fillna({col: int(col) for col in step_mask.columns}).values
-#     step_mask[0, :] = np.nan
-#
-#     # -----------------------------
-#     # 10. Precompute fuel costs per compartment
-#     # -----------------------------
-#     fuel_cost_all = self.fuel_formula(initial_setup[['fuel_cost_per_hour', 'drive_time']]).rename('fuel_cost')
-#     fuel_cost_df = pd.concat([initial_setup['compt_id'], fuel_cost_all], axis=1)
-#     fuel_cost_per_compartment = self.sort_fuel_compartment_costing(fuel_cost_df)
-#
-#     # -----------------------------
-#     # 11. Initialize final budgets array
-#     # -----------------------------
-#     n_rows = initial_setup.shape[0]
-#     final_budgets = np.full((financial_funds.shape[1], total_steps + 1, n_rows, 7), np.nan)
-#     final_budgets[:, 0, :, :] = time_step_0.values
-#
-#     # -----------------------------
-#     # 12. Loop over budgets and timesteps
-#     # -----------------------------
-#     for b_idx, budget_name in enumerate(financial_funds.columns):
-#         for t_idx, timestep in enumerate(step_mask):
-#             # Set yearly budget
-#             if t_idx % 12 == 0:
-#                 current_budget = financial_values[int(t_idx / 12), b_idx]
-#                 print(budget_name, int(t_idx / 12), current_budget)
-#
-#             # Copy previous timestep if no treatment
-#             if np.isnan(timestep).all():
-#                 final_budgets[b_idx, t_idx + 1] = final_budgets[b_idx, t_idx]
-#                 continue
-#
-#             # Prepare temp array with previous timestep
-#             temp_arr = np.full((n_rows, 9), np.nan)
-#             prev_step = final_budgets[b_idx, t_idx]
-#             temp_arr[:, 0:7] = prev_step
-#
-#             # Determine active treatment mask
-#             active_treatments = timestep[~np.isnan(timestep)]
-#             treatment_mask = np.isin(initial_setup["treatment_frequency"].values, active_treatments).reshape(-1, 1)
-#
-#             # -----------------------------
-#             # 12a. Calculate density
-#             # -----------------------------
-#             temp_arr[:, [-2, -1]] = self.calculate_density(
-#                 temp_arr[:, [0, 5, 6]],
-#                 initial_setup[['densification', 'initial_density_reduction', 'followup_density_reduction']].values
-#             )
-#
-#             # -----------------------------
-#             # 12b. Calculate person days
-#             # -----------------------------
-#             temp_arr[:, [1, 2]] = self.calculate_person_days(
-#                 temp_arr[:, [0, 5, 6]],
-#                 initial_setup[
-#                     ['growth_form', 'age', 'riparian', 'walk_time', 'drive_time', 'area', 'slope_factor']].values,
-#                 working_day_hours
-#             )
-#
-#             # -----------------------------
-#             # 12c. Calculate costing
-#             # -----------------------------
-#             temp_arr[:, [0, 2, 4, 5, 6]], current_budget, is_costed = self.calculate_costing(
-#                 temp_arr[:, [0, 1, 2, -4, -3, -2, -1]],
-#                 initial_setup[
-#                     ['initial_team_size', 'initial_cost_per_day', 'followup_team_size', 'followup_cost_per_day',
-#                      'vehicle_cost_per_day', 'fuel_cost_per_hour', 'daily_cost', 'maintenance_level',
-#                      'prioritization', 'drive_time']].values,
-#                 treatment_mask,
-#                 current_budget,
-#                 fuel_cost_per_compartment
-#             )
-#
-#             # -----------------------------
-#             # 12d. Calculate flow
-#             # -----------------------------
-#             temp_arr[:, 3] = self.calculate_flow(
-#                 temp_arr[:, [0, 6]],
-#                 initial_setup[['area', 'riparian', 'flow_reduction_factor', 'mean_annual_runoff',
-#                                'densification', 'initial_density_reduction', 'followup_density_reduction']].values,
-#                 is_costed
-#             )
-#
-#             final_budgets[b_idx, t_idx + 1] = temp_arr[:, 0:7]
-#
-#     # -----------------------------
-#     # 13. Condense monthly budgets into yearly results
-#     # -----------------------------
-#     final_budgets_yearly = [
-#         [
-#             pd.DataFrame(
-#                 np.concatenate((initial_setup[['compt_id', 'miu_id', 'nbal_id', 'area']].values,
-#                                 j[:, [0, 2, 3, 4]]), axis=1),
-#                 columns=['output_compartment_id', 'output_miu_id', 'output_nbal_id', 'output_area',
-#                          'output_density', 'output_person_days', 'output_flow', 'output_cost']
-#             ).assign(
-#                 output_budget_option='Optimal' if i == 4 else f'Budget_{i + 1}',
-#                 output_year=index + 1
-#             ) for index, j in enumerate(final_budgets[i, ::12])
-#         ] for i in range(final_budgets.shape[0])
-#     ]
-#
-#     return final_budgets_yearly
-

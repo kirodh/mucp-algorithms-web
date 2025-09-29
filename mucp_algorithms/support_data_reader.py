@@ -1,22 +1,30 @@
 """
-Read data from excel or use it from the viewer passed as a list or df.
+Purpose: Read support data functions for MUCP
+Author: Kirodh Boodhraj
+
+Read data from Excel file (see example Excel file in the examples for user input for the support data) or use it from
+  the viewer passed as a list or df.
+
 These functions will cleanup the data and validate them for you.
+
 Note that you need to have opened the user uploaded files namely:
-- miu,
-- nbal,
-- compartments,
-- gis mapping,
-- miu linked species,
-- nbal linked species,
-- compartment priorities,
+- miu shp,
+- nbal shp,
+- compartments shp,
+- gis mapping shp,
+- miu linked species Excel,
+- nbal linked species Excel,
+- compartment priorities csv,
 
 """
 
 import pandas as pd
 from .support_validators import validate_growth_form, validate_treatment_methods, validate_species, validate_clearing_norms, validate_prioritization_model, validate_costing_models, validate_planning_variables
 
-# the growth form is linked to the clearing_norms and the species
+
+# growth form
 def read_growth_form(growth_forms_list, clearing_norms_growth_form, species_growth_form, validate = False):
+    # the growth form is linked to the clearing_norms and the species
     # ensure lower
     growth_forms_list = [item.lower() for item in growth_forms_list if isinstance(item, str)]
     clearing_norms_growth_form = [item.lower() for item in clearing_norms_growth_form if isinstance(item, str)]
@@ -40,6 +48,7 @@ def read_growth_form(growth_forms_list, clearing_norms_growth_form, species_grow
     return list(valid_growth_forms)
 
 
+# treatment method
 def read_treatment_methods(treatment_methods_list, clearing_norms_treatment_methods, validate = False):
     # ensure lower
     treatment_methods_list = [item.lower() for item in treatment_methods_list if isinstance(item, str)]
@@ -62,6 +71,7 @@ def read_treatment_methods(treatment_methods_list, clearing_norms_treatment_meth
     return list(valid_treatment_methods)
 
 
+# species
 def read_species(species_df, miu_linked_species, nbal_linked_species, validate = False):
     # ensure lower
     # Convert only object (string) columns to lowercase
@@ -94,8 +104,11 @@ def read_species(species_df, miu_linked_species, nbal_linked_species, validate =
     # Return as a sorted list (optional, for consistent order)
     return species_df
 
+# herbicides, not used in tool at the moment
 def read_herbicides(df): return df
 
+
+# clearing norms
 def read_clearing_norms(clearing_norms_df, miu_size_class, nbal_size_class, species_growth_forms, validate = False):
     # Convert only object (string) columns to lowercase
     clearing_norms_df = clearing_norms_df.map(
@@ -129,6 +142,7 @@ def read_clearing_norms(clearing_norms_df, miu_size_class, nbal_size_class, spec
     return clearing_norms_df
 
 
+# prioritization categories
 def read_prioritization_categories(compartment_priorities_data, categories,validate = False, headers_required=["compt_id"]):
 
     # validate
@@ -164,7 +178,6 @@ def read_prioritization_categories(compartment_priorities_data, categories,valid
 
         elif category["type"] == "text":
             # Extract only the string values from allowed
-            # allowed_vals = set(category["allowed"])
             allowed_vals = {v["value"].lower() for v in category["allowed"]}
 
             invalid_mask = ~col_values.isin(allowed_vals)
@@ -173,7 +186,6 @@ def read_prioritization_categories(compartment_priorities_data, categories,valid
     # Keep only necessary columns
     category_cols = [c["name"] for c in categories if c["name"] in gdf.columns]
     gdf = gdf[headers_required + category_cols]
-    # gdf = gdf[headers_required + [category.name for category in categories]]
 
     # Drop rows with missing values in required headers
     gdf = gdf.dropna(subset=headers_required)
@@ -185,8 +197,7 @@ def read_prioritization_categories(compartment_priorities_data, categories,valid
     return gdf
 
 
-
-
+# costing model
 def read_costing_model(df: pd.DataFrame, required_headers: list = ["Costing Model Name","Initial Team Size","Initial Cost/Day", "Follow-up Team Size","Follow-up Cost/Day","Vehicle Cost/Day", "Fuel Cost/Hour","Maintenance Level","Cost/Day"],validate = False):
     # validate
     if validate:
@@ -207,12 +218,10 @@ def read_costing_model(df: pd.DataFrame, required_headers: list = ["Costing Mode
 
     # --- Deduplicate entries by costing model name ---
     df = df.drop_duplicates(subset=[costing_model_name_header])
-    # print("df.dtypes")
-    # for col in df.columns:
-    #     print(col, type(df[col].dropna().iloc[0]))
     return df
 
 
+# planning variables
 def read_planning_variables(budget_plan_1, budget_plan_2, budget_plan_3, budget_plan_4, escalation_plan_1, escalation_plan_2, escalation_plan_3, escalation_plan_4, standard_working_day, standard_working_year_days, start_year, years_to_run, currency, save_results,validate = False):
     # validate
     if validate:

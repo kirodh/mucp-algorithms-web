@@ -1,10 +1,14 @@
-import os
+"""
+Purpose: Validate functions for MUCP file data, mbal, miu, compartment, gis mapping etc, shp, excel and csv
+Author: Kirodh Boodhraj
+"""
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 import re
 
 
+# miu shapefile validation
 def validate_miu_shapefile(path: str, gis_mapping_miu_ids: list, headers_required: list, headers_other: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -100,6 +104,8 @@ def validate_miu_shapefile(path: str, gis_mapping_miu_ids: list, headers_require
     # --- STEP 6: Return results ---
     return {"warnings": warnings, "errors": errors}
 
+
+# nbal shapefile validation
 def validate_nbal_shapefile(path: str, gis_mapping_nbal_ids: list, headers_required: list, headers_other: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -216,6 +222,7 @@ def validate_nbal_shapefile(path: str, gis_mapping_nbal_ids: list, headers_requi
     return {"warnings": warnings, "errors": errors}
 
 
+# compartment shapefile validation
 def validate_compartment_shapefile(path: str, gis_mapping_compartment_ids: list,headers_required: list, headers_other: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -379,6 +386,7 @@ def validate_compartment_shapefile(path: str, gis_mapping_compartment_ids: list,
     return {"warnings": warnings, "errors": errors}
 
 
+# gis mapping shapefile validation
 def validate_gis_mapping_shapefile(path: str, headers_required: list, headers_other: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -498,6 +506,7 @@ def validate_gis_mapping_shapefile(path: str, headers_required: list, headers_ot
     return {"warnings": warnings, "errors": errors}
 
 
+# miu linked species excel validation
 def validate_miu_linked_species_excel(path: str, headers_required: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -568,6 +577,8 @@ def validate_miu_linked_species_excel(path: str, headers_required: list) -> dict
     # --- STEP 6: Return results ---
     return {"warnings": warnings, "errors": errors}
 
+
+# nbal linked species excel validation
 def validate_nbal_linked_species_excel(path: str, headers_required: list) -> dict:
     """
         Validate MIU shapefile structure and data.
@@ -639,6 +650,7 @@ def validate_nbal_linked_species_excel(path: str, headers_required: list) -> dic
     return {"warnings": warnings, "errors": errors}
 
 
+# compartment priorities csv validation
 def validate_compartment_priorities_csv(path: str, headers_required: list) -> dict:
     """
         Validate MIU shapefile structure and data.

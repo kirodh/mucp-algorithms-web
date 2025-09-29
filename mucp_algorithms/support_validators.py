@@ -1,8 +1,11 @@
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-import re
+"""
+Purpose: Validate functions for MUCP support data
+Author: Kirodh Boodhraj
+"""
 
+import pandas as pd
+
+# growth form validation
 def validate_growth_form(growth_forms_list, clearing_norms_growth_form, species_growth_form):
     warnings, errors = [], []
 
@@ -24,6 +27,7 @@ def validate_growth_form(growth_forms_list, clearing_norms_growth_form, species_
     return {"warnings": warnings, "errors": errors}
 
 
+# treatment methods validation
 def validate_treatment_methods(treatment_methods_list, clearing_norms_treatment_methods):
     warnings, errors = [], []
 
@@ -39,6 +43,8 @@ def validate_treatment_methods(treatment_methods_list, clearing_norms_treatment_
 
     return {"warnings": warnings, "errors": errors}
 
+
+# species validation
 def validate_species(species_df, miu_linked_species, nbal_linked_species):
     warnings, errors = [], []
 
@@ -59,6 +65,7 @@ def validate_species(species_df, miu_linked_species, nbal_linked_species):
     return {"warnings": warnings, "errors": errors}
 
 
+# clearing norms validation
 def validate_clearing_norms(clearing_norms_size_class_list, miu_size_class, nbal_size_class):
     warnings, errors = [], []
 
@@ -82,6 +89,7 @@ def validate_clearing_norms(clearing_norms_size_class_list, miu_size_class, nbal
     return {"warnings": warnings, "errors": errors}
 
 
+# prioritization validation
 def validate_prioritization_model(compartment_priorities_data, categories, headers_required):
     warnings, errors = [], []
 
@@ -112,22 +120,11 @@ def validate_prioritization_model(compartment_priorities_data, categories, heade
         elif category["type"] == "text":
             if not category.get("allowed"):
                 errors.append(f"Category '{col_name}' has no allowed text values defined.")
-        # # 3. Category must have bands/text values
-        # if category.category_type == "numeric":
-        #     if not category.numeric_bands.exists():
-        #         errors.append(f"Category '{col_name}' has no numeric bands defined.")
-        # elif category.category_type == "text":
-        #     if not category.text_values.exists():
-        #         errors.append(f"Category '{col_name}' has no text values defined.")
+
 
     # --- WARNINGS ---
     for category in categories:
-        # col_name = category.name
         col_name = category["name"]
-
-        # if col_name not in gdf.columns:
-        #     continue  # already errored above
-
         col_values = gdf[col_name]
 
         if category["weight"] < 0 or category["weight"] > 1:
@@ -135,7 +132,6 @@ def validate_prioritization_model(compartment_priorities_data, categories, heade
                 f"Category '{col_name}' has weight less than 0 or more than 1."
             )
 
-        # if category.category_type == "numeric":
         if category["type"] == "numeric":
             # 4. Non-numeric values -> warning + drop rows
             non_numeric_mask = pd.to_numeric(col_values, errors="coerce").isna()
@@ -173,8 +169,6 @@ def validate_prioritization_model(compartment_priorities_data, categories, heade
                     )
 
         elif category["type"] == "text":
-            # allowed_vals = set(v.text_value for v in category.text_values.all())
-            # allowed_vals = set(category["allowed"])
             allowed_vals = {v["value"].lower() for v in category["allowed"]}
 
             invalid_mask = ~col_values.isin(allowed_vals)
@@ -194,7 +188,7 @@ def validate_prioritization_model(compartment_priorities_data, categories, heade
     return {"warnings": warnings, "errors": errors}
 
 
-
+# costing models validation
 def validate_costing_models(costing_models_df, required_headers):
     warnings, errors = [], []
 
@@ -237,8 +231,6 @@ def validate_costing_models(costing_models_df, required_headers):
             errors.append(f"{model_name}: {vehicle_cost_per_day_header} cannot be negative.")
         if row[fuel_cost_per_hour_header] < 0:
             errors.append(f"{model_name}: {fuel_cost_per_hour_header} cannot be negative.")
-        # if row[maintenance_level_header] < 0:
-        #     errors.append(f"{model_name}: {maintenance_level_header} cannot be negative.")
         if row[total_cost_per_day_header] < 0:
             errors.append(f"{model_name}: {total_cost_per_day_header} cannot be negative.")
 
@@ -259,13 +251,11 @@ def validate_costing_models(costing_models_df, required_headers):
         elif row[followup_team_size_header] > 50:
             warnings.append(f"{model_name}: {followup_team_size_header} is unusually high (>50).")
 
-        # if row[maintenance_level_header] > 5:
-        #     warnings.append(f"{model_name}: {maintenance_level_header} is very high (>5).")
 
     return {"warnings": warnings, "errors": errors}
 
 
-
+# planning variables validation
 def validate_planning_variables(budget_plan_1, budget_plan_2, budget_plan_3, budget_plan_4, escalation_plan_1, escalation_plan_2, escalation_plan_3, escalation_plan_4, standard_working_day, standard_working_year_days, start_year, years_to_run, currency, save_results):
     warnings, errors = [], []
 

@@ -1,5 +1,11 @@
+"""
+Purpose: Priority algorithm of the MUCP tool. Check out the algorithm file for more information.
+    This code is optimized to use vectorization for speed.
+Author: Kirodh Boodhraj
+"""
 import pandas as pd
 
+# Main prioritization algorithm
 def get_priorities(prioritization_data: pd.DataFrame, category_data: list ) -> pd.DataFrame:
 
     # Helper functions

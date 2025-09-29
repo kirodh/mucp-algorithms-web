@@ -1,10 +1,17 @@
+"""
+Purpose: Read data functions for MUCP file data, mbal, miu, compartment, gis mapping etc, shp, excel and csv
+Author: Kirodh Boodhraj
+"""
+
 import pandas as pd
 import geopandas as gpd
 import re
 import numpy as np
 from .data_validators import  validate_miu_shapefile, validate_nbal_shapefile, validate_compartment_shapefile, validate_gis_mapping_shapefile, validate_miu_linked_species_excel, validate_nbal_linked_species_excel, validate_compartment_priorities_csv
 
-# helpers
+# helper functions:
+
+# normalize the stages to numerical values
 def normalize_stage(value: str) -> int:
     value = str(value).strip().lower()
     if value == "initial treatment":
@@ -22,8 +29,9 @@ def normalize_stage(value: str) -> int:
 
 
 
-# Main cleaners
+# Main reader and cleaner functions
 
+# MIU shp
 def read_miu_shapefile(path: str,
                        gis_mapping_miu_ids: list,
                        validate: bool = False,
@@ -98,6 +106,8 @@ def read_miu_shapefile(path: str,
 
     return gdf
 
+
+# NBAL shp
 def read_nbal_shapefile(path: str,
                        gis_mapping_nbal_ids: list,
                        validate: bool = False,
@@ -172,6 +182,8 @@ def read_nbal_shapefile(path: str,
 
     return gdf
 
+
+# compartment shp
 def read_compartment_shapefile(path: str,
                        gis_mapping_compartment_ids: list,
                        validate: bool = False,
@@ -249,6 +261,8 @@ def read_compartment_shapefile(path: str,
 
     return gdf
 
+
+# GIS mapping shp
 def read_gis_mapping_shapefile(path: str,
                        validate: bool = False,
                        headers_required: list = ["nbal_id", "miu_id", "compt_id","area"],
@@ -345,10 +359,7 @@ def read_gis_mapping_shapefile(path: str,
     return gdf
 
 
-
-
-
-
+# MIU linked species Excel
 def read_miu_linked_species_excel(path: str,
                                   validate: bool = False,
                                   headers_required: list = ["miu_id", "species", "idenscode", "age"],) -> pd.DataFrame:
@@ -387,6 +398,8 @@ def read_miu_linked_species_excel(path: str,
 
     return df
 
+
+# NBAL linked species Excel
 def read_nbal_linked_species_excel(path: str,
                                    validate: bool = False,
                                    headers_required: list = ["nbal_id", "miu_id", "compt_id","area"],) -> pd.DataFrame:
@@ -426,6 +439,8 @@ def read_nbal_linked_species_excel(path: str,
 
     return df
 
+
+# compartment priorities CSV
 def read_compartment_priorities_csv(path: str, validate: bool = False, headers_required: list = ["compt_id"]) -> pd.DataFrame:
     if validate:
         return validate_compartment_priorities_csv(path, headers_required)

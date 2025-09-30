@@ -172,6 +172,9 @@ def propagate_budgets_for_all_years(start_year: int, years_to_run: int, budget_1
 # merge the miu, nbal, compartment and gis mapping files together to make a master df with all data available for all
 #   the entries in the gis mapping file
 def merge_gis_mapping_compartment_miu_nbal_df(compartment_data, miu_data ,nbal_data, gis_mapping_data):
+    # for _, row in gis_mapping_data.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+
     # step get all valid entries if they are in the miu, nbal and compartment df's
     # Build sets of valid IDs from the other dataframes
     valid_compt_ids = set(compartment_data["compt_id"].dropna().unique())
@@ -219,6 +222,23 @@ def split_expanded_gis_mapping_df(df):
 
     # --- 3. Everything else (typically includes nbal-level rows) ---
     other_df = df.drop(comp_only_df.index.union(comp_miu_df.index)).copy()
+
+    # print("##############################")
+    # for _, row in df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+    #
+    # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    # for _, row in comp_only_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+    #
+    # print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    # for _, row in comp_miu_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+    #
+    # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    # for _, row in other_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+
 
     return comp_only_df, comp_miu_df, other_df
 
@@ -299,7 +319,6 @@ def merge_tree_species_data(master_df, miu_linked_species_data, nbal_linked_spec
     # Step 7: Optional: sort by compartment and species for readability
     expanded_df = expanded_df.sort_values(by=['compt_id', 'species']).reset_index(drop=True)
 
-    # print(expanded_df)
     return expanded_df
 
 
@@ -812,6 +831,19 @@ def postprocess_yearly_results(dicts_full, comp_miu_df, follow_up_df, com_only_d
             # Save back
             yearly_results[year] = df
 
+    # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    # for _, row in comp_miu_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+    #
+    # print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    # for _, row in follow_up_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+    #
+    # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    # for _, row in com_only_df.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+
+    # print(len(dicts_full[0]))
     return dicts_full
 
 
@@ -848,7 +880,7 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     comp_miu_df['cost_model'] = comp_miu_df['costing'].map(cost_plan_mappings)
     follow_up_df['cost_model'] = follow_up_df['costing'].map(cost_plan_mappings)
 
-    # step 5 reparian mapping:
+    # step 5 riparian mapping:
     mapping = {"l": "landscape", "r": "riparian"}
     comp_miu_df["riparian_c"] = comp_miu_df["riparian_c"].map(mapping)
     follow_up_df["riparian_c"] = follow_up_df["riparian_c"].map(mapping)
@@ -899,13 +931,13 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         comp_only_df, comp_miu_df, follow_up_df
     )
 
-    # print(comp_only_df)
+    # print(len(comp_only_df))
     # print(comp_only_df.columns)
     # print(comp_only_df.iloc[0])
-    # print(comp_miu_df)
+    # print(len(comp_miu_df))
     # print(comp_miu_df.columns)
     # print(comp_miu_df.iloc[0])
-    # print(follow_up_df)
+    # print(len(follow_up_df))
     # print(follow_up_df.columns)
     # print(follow_up_df.iloc[0])
 

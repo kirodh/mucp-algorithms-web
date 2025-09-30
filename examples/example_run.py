@@ -14,12 +14,17 @@ Example case files:
 -user mucp support data input excel
 
 How to run a case. Open files here and then link to the actual algorithms.
+
+Author: Kirodh Boodhraj
 """
+
 import pandas as pd
 import geopandas as gpd
 from mucp_algorithms import data_reader,support_data_reader
 from mucp_algorithms.algorithms.compartment_cost import calculate_budgets
-
+import matplotlib.pyplot as plt
+from collections import defaultdict
+from functools import reduce
 
 # helper functions:
 def is_data_valid(validation_result: dict) -> bool:
@@ -95,12 +100,125 @@ def build_categories(weights_df, bands_df, prioritization_model: str):
 
     return categories
 
+# for plotting
+def compare_two_dfs(df1, df2, label1="DF1", label2="DF2",
+                    metrics=("density", "flow", "cost", "person_days", "priority", "cleared_now")):
+    """
+    Align two DataFrames by link_back_id and compare metrics.
 
+    Parameters
+    ----------
+    df1, df2 : pandas.DataFrame
+        Must contain 'link_back_id' column (or have it as index).
+    label1, label2 : str
+        Names to use for each DataFrame in plots.
+    metrics : tuple
+        List of metric column names to compare.
+    """
+
+    # Ensure link_back_id is a column in both
+    if "link_back_id" not in df1.columns:
+        if df1.index.name == "link_back_id":
+            df1 = df1.reset_index()
+        else:
+            raise KeyError("'link_back_id' not found in df1")
+
+    if "link_back_id" not in df2.columns:
+        if df2.index.name == "link_back_id":
+            df2 = df2.reset_index()
+        else:
+            raise KeyError("'link_back_id' not found in df2")
+
+    # Keep only needed columns
+    df1 = df1[["link_back_id"] + list(metrics)].copy()
+    df2 = df2[["link_back_id"] + list(metrics)].copy()
+
+    # Merge on link_back_id
+    merged = pd.merge(df1, df2, on="link_back_id", suffixes=(f"_{label1}", f"_{label2}"))
+
+    # Sort for plotting
+    merged = merged.sort_values("link_back_id")
+
+    # Plot each metric
+    for metric in metrics:
+        plt.figure(figsize=(12, 6))
+        x = merged["link_back_id"].astype(str)
+
+        plt.plot(x, merged[f"{metric}_{label1}"], marker="o", label=label1)
+        plt.plot(x, merged[f"{metric}_{label2}"], marker="s", label=label2)
+
+        plt.title(f"{metric.capitalize()} Comparison ({label1} vs {label2})")
+        plt.xlabel("Link Back ID")
+        plt.ylabel(metric.capitalize())
+        plt.xticks(rotation=90)
+        plt.legend()
+        plt.grid(True, linestyle="--", alpha=0.6)
+        plt.tight_layout()
+        plt.savefig(f"comparison_{metric}_{label1}_vs_{label2}.png")
+        plt.close()
+
+    return merged  # return merged DataFrame if further analysis is needed
+
+# for plotting
 def plot_me(costing, budgets):
-    pass
+    """
+    Generate comparison plots for cost, flow, person days, and density across budgets and plans.
+    Saves plots as PNG files instead of showing them interactively.
+    """
+    chart_data = {"cost": {}, "flow": {}, "person_days": {}, "density": {}}
+
+    # Collect data
+    for year, plans in budgets.items():
+        chart_data["cost"][year] = {}
+        chart_data["flow"][year] = {}
+        chart_data["person_days"][year] = {}
+        chart_data["density"][year] = {}
+
+        for idx, plan in enumerate(["optimal", "plan_1", "plan_2", "plan_3", "plan_4"]):
+            if year not in costing[idx]:
+                continue
+            df = costing[idx][year]
+
+            # Drop NaN safely
+            cost_vals = df["cost"].dropna()
+            flow_vals = df["flow"].dropna()
+            person_days_vals = df["person_days"].dropna()
+            density_vals = df["density"].dropna()
+
+            chart_data["cost"][year][plan] = cost_vals.sum() if not cost_vals.empty else 0
+            chart_data["flow"][year][plan] = flow_vals.sum() if not flow_vals.empty else 0
+            chart_data["person_days"][year][plan] = person_days_vals.sum() if not person_days_vals.empty else 0
+            chart_data["density"][year][plan] = density_vals.mean() if not density_vals.empty else 0
+
+    # Convert to DataFrames for easier plotting
+    cost_df = pd.DataFrame(chart_data["cost"]).T
+    flow_df = pd.DataFrame(chart_data["flow"]).T
+    person_days_df = pd.DataFrame(chart_data["person_days"]).T
+    density_df = pd.DataFrame(chart_data["density"]).T
+
+    # Plotting helper
+    def plot_and_save(df, title, ylabel, filename):
+        plt.figure(figsize=(10, 6))
+        df.plot(marker="o")
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.xlabel("Year")
+        plt.legend(title="Plan")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.close()
+
+    # Generate and save all plots
+    plot_and_save(cost_df, "Yearly Cost Comparison", "Total Cost", "cost_plot.png")
+    plot_and_save(flow_df, "Yearly Flow Comparison", "Total Flow", "flow_plot.png")
+    plot_and_save(person_days_df, "Yearly Person Days Comparison", "Total Person Days", "person_days_plot.png")
+    plot_and_save(density_df, "Yearly Density Comparison (Mean)", "Mean Density", "density_plot.png")
+
+    return cost_df, flow_df, person_days_df, density_df
 
 
-
+# Main function to run the MUCP
 def run_mucp():
     #################
     # READ INPUT DATA
@@ -370,11 +488,25 @@ def run_mucp():
     # print(prioritization_model_data.iloc[0])
 
 
-    # costing
+    # costing calculation
     costing, budgets = calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, miu_linked_species_data, nbal_linked_species_data, compartment_priorities_data, growth_forms, treatment_methods, clearing_norms_df, species, costing_data, budget_plan_1, budget_plan_2, budget_plan_3, budget_plan_4, escalation_plan_1, escalation_plan_2, escalation_plan_3, escalation_plan_4, standard_working_day, working_year_days, start_year, years_to_run, currency, save_results, cost_plan_mappings, categories, prioritization_model_data)
+
+    # print(budgets)
+    # print(budgets[0])
+
+    # print(len(costing))
+    # print(costing[0][2025].columns)
+    # print(costing[0][2025].iloc[0])
+    # print(costing[1][2025].iloc[0])
+    # print(costing[2][2025].iloc[0])
+    # print(costing[3][2025].iloc[0])
+    # print(costing[4][2025]["link_back_id"])
+
 
     # temporary plotting
     plot_me(costing, budgets)
+    # compare_two_dfs(costing[1][2025], costing[1][2026])
+
 
     return costing, budgets
 

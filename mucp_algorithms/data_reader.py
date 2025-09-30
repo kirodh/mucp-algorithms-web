@@ -289,6 +289,9 @@ def read_gis_mapping_shapefile(path: str,
     gdf = gpd.read_file(path)
     gdf.columns = [c.lower() for c in gdf.columns]
 
+    # for _, row in gdf.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+
     # no checks because assume validation was done
 
     # clean data operations
@@ -299,14 +302,19 @@ def read_gis_mapping_shapefile(path: str,
     area_header = headers_required[3]
     geometry_header = headers_other[0]
 
-    # Drop rows with missing critical fields
-    for field in headers_required:
-        gdf = gdf[gdf[field].notna()]
+    # # Drop rows with missing critical fields
+    # for field in headers_required:
+    #     gdf = gdf[gdf[field].notna()]
+    gdf = gdf.dropna(subset=headers_required, how="all")
 
     # Fill empty IDs with None (instead of NaN/empty string for grouping consistency)
     gdf[nbal_id_header] = gdf[nbal_id_header].replace({np.nan: None, "": None})
     gdf[miu_id_header] = gdf[miu_id_header].replace({np.nan: None, "": None})
     gdf[compartment_id_header] = gdf[compartment_id_header].replace({np.nan: None, "": None})
+
+    # for _, row in gdf.iterrows():
+    #     print(row["compt_id"], row["miu_id"], row["nbal_id"])
+
 
     # Create a grouping key based on the rules
     def make_group_key(row):

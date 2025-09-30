@@ -864,7 +864,8 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
     prioritization_df = get_prioritization(prioritization_model_data, categories)
 
     # will flow be calculated?
-    calculate_flow_boolean = "runoff" in compartment_priorities_data.columns
+    # calculate_flow_boolean = "runoff" in compartment_priorities_data.columns
+    calculate_flow_boolean = any(cat['name'] == 'runoff' for cat in categories)
 
     # split the clearing norms into initial and followup
     clearing_norms_df_followup = clearing_norms_df[clearing_norms_df["process"] == "follow-up"].copy()
@@ -1275,7 +1276,6 @@ def calculate_budgets(gis_mapping_data, miu_data, nbal_data, compartment_data, m
         prev_year_df_2 = timestep_now_2.copy()
         prev_year_df_3 = timestep_now_3.copy()
         prev_year_df_4 = timestep_now_4.copy()
-
 
     # Post processing
     final_results = postprocess_yearly_results([yearly_results_o, yearly_results_1, yearly_results_2, yearly_results_3, yearly_results_4],comp_miu_df,follow_up_df,comp_only_df)

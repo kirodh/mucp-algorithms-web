@@ -417,6 +417,11 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
 
         return methods[0] if methods else None
 
+    # lower case the norms text columns once (not again for every row)
+    norms_growth_form = norms["growth_form"].str.lower()
+    norms_size_class = norms["size_class"].str.lower()
+    norms_terrain = norms["terrain"].str.lower()
+
     def get_method(row):
         # Pick closest density instead of exact match
         closest = closest_density(row["idenscode"])
@@ -424,18 +429,18 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
         # Initial filter
         mask = (
             (norms["density"] == closest) &
-            (norms["growth_form"].str.lower() == row["growth_form"].lower()) &
-            (norms["size_class"].str.lower() == row["age"].lower()) &
-            (norms["terrain"].str.lower() == row["riparian_c"].lower())
+            (norms_growth_form == row["growth_form"].lower()) &
+            (norms_size_class == row["age"].lower()) &
+            (norms_terrain == row["riparian_c"].lower())
         )
         candidates = norms[mask]
 
         # If no matches -> drop density filter
         if candidates.empty:
             mask = (
-                (norms["growth_form"].str.lower() == row["growth_form"].lower()) &
-                (norms["size_class"].str.lower() == row["age"].lower()) &
-                (norms["terrain"].str.lower() == row["riparian_c"].lower())
+                (norms_growth_form == row["growth_form"].lower()) &
+                (norms_size_class == row["age"].lower()) &
+                (norms_terrain == row["riparian_c"].lower())
             )
             candidates = norms[mask]
 
@@ -450,9 +455,18 @@ def treatment_selection(master_df: pd.DataFrame, norms: pd.DataFrame) -> pd.Data
         # Otherwise apply priority rules
         return choose_method(candidates, row["age"], row["riparian_c"])
 
-    # Apply to each row of master_df
+    # Apply to each row of master_df. The method only depends on (closest norm density,
+    # growth_form, age, riparian_c) and large projects repeat the same few hundred combinations
+    # thousands of times, so each combination is looked up once and reused (same results, much faster).
     master_df = master_df.copy()
-    master_df["treatment_method"] = master_df.apply(get_method, axis=1)
+    cache = {}
+    methods = []
+    for idenscode, growth_form, age, riparian_c in zip(master_df["idenscode"], master_df["growth_form"], master_df["age"], master_df["riparian_c"]):
+        key = (closest_density(idenscode), growth_form, age, riparian_c)
+        if key not in cache:
+            cache[key] = get_method({"idenscode": idenscode, "growth_form": growth_form, "age": age, "riparian_c": riparian_c})
+        methods.append(cache[key])
+    master_df["treatment_method"] = pd.Series(methods, index=master_df.index)
 
     return master_df
 
@@ -632,14 +646,17 @@ def attach_cleared_now(
     budget_left = year_budget - candidates.loc[affordable_mask, "cost"].sum()
 
     # Handle the tail (after overshoot) with greedy skipping
+    # (plain arrays instead of iterrows: same order and logic, ~100x faster for large projects)
     remaining = candidates.loc[~affordable_mask]
-    for idx, row in remaining.iterrows():
-        cost = row["cost"]
+    cleared_tail = []
+    for idx, cost in zip(remaining.index.tolist(), remaining["cost"].tolist()):
         if cost <= budget_left:
             budget_left -= cost
-            cleared_now_mask.at[idx] = True
+            cleared_tail.append(idx)
         if budget_left <= 0:
             break
+    if cleared_tail:
+        cleared_now_mask.loc[cleared_tail] = True
 
     # Assign results back
     merged["cleared_now"] = cleared_now_mask
